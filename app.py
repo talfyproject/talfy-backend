@@ -6,11 +6,30 @@ import os
 app = Flask(__name__)
 CORS(app)
 
+# Connessione al database (Render Postgres)
 DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://talfy_db_user:1POTty3Z6HosHBD8TDtzh2hWqcVFdRAq@dpg-d1gdskqli9vc73ahklag-a.frankfurt-postgres.render.com/talfy_db')
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL)
 
+# ✅ CREA LA TABELLA USERS SE NON ESISTE
+def create_users_table():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            email TEXT NOT NULL UNIQUE,
+            password TEXT NOT NULL,
+            is_company BOOLEAN DEFAULT FALSE
+        );
+    """)
+    conn.commit()
+    cur.close()
+    conn.close()
+    print("✅ Tabella 'users' creata o già esistente.")
+
+# REGISTRA UN UTENTE
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.get_json()
@@ -34,6 +53,7 @@ def register():
 
     return jsonify({'success': True})
 
+# OTTIENI IL NUMERO DI CANDIDATI E AZIENDE
 @app.route('/api/counts', methods=['GET'])
 def get_counts():
     conn = get_db_connection()
@@ -46,5 +66,7 @@ def get_counts():
     conn.close()
     return jsonify({'candidates': candidates, 'companies': companies})
 
+# AVVIA L'APP
 if __name__ == '__main__':
+    create_users_table()  # ✅ CREA LA TABELLA ALL'AVVIO
     app.run(debug=True)
