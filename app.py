@@ -6,7 +6,10 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://talfy_db_user:1POTty3Z6HosHBD8TDtzh2hWqcVFdRAq@dpg-d1gdskqli9vc73ahklag-a.frankfurt-postgres.render.com/talfy_db')
+from dotenv import load_dotenv
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL)
