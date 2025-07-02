@@ -52,3 +52,77 @@ def register():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+@app.route("/submit-candidate-profile", methods=["POST"])
+def submit_candidate_profile():
+    data = request.form
+    email = request.cookies.get("user_email")  # Assumiamo che l'email sia salvata nei cookie dopo login/registrazione
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT id FROM users WHERE email = %s", (email,))
+    user = cur.fetchone()
+    if not user:
+        return "User not found", 400
+
+    user_id = user[0]
+
+    cur.execute(
+        """
+        INSERT INTO candidates (user_id, fullname, experience, salary_range, sector, tools,
+                                english_level, education, area_of_study)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        (
+            user_id,
+            data.get("fullname"),
+            data.get("experience"),
+            data.get("salary_range"),
+            data.get("sector"),
+            data.get("tools"),
+            data.get("english_level"),
+            data.get("education"),
+            data.get("area_of_study")
+        )
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return "Candidate profile saved successfully!"
+
+@app.route("/submit-company-profile", methods=["POST"])
+def submit_company_profile():
+    data = request.form
+    email = request.cookies.get("user_email")  # Assumiamo che l'email sia salvata nei cookie
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT id FROM users WHERE email = %s", (email,))
+    user = cur.fetchone()
+    if not user:
+        return "User not found", 400
+
+    user_id = user[0]
+
+    cur.execute(
+        """
+        INSERT INTO companies (user_id, company_name, vat_number, sector,
+                               company_size, country, website)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """,
+        (
+            user_id,
+            data.get("company_name"),
+            data.get("vat_number"),
+            data.get("sector"),
+            data.get("company_size"),
+            data.get("country"),
+            data.get("website")
+        )
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return "Company profile saved successfully!"
