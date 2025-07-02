@@ -6,91 +6,45 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# Configurazione del database
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL",
-    "postgresql://talfy_db_user:1POTty3Z6HosHBD8TDtzh2hWqcVFdRAq@dpg-d1gdskqli9vc73ahklag-a.frankfurt-postgres.render.com/talfy_db"
-)
+DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://talfy_db_user:1POTty3Z6HosHBD8TDtzh2hWqcVFdRAq@dpg-d1gdskqli9vc73ahklag-a.frankfurt-postgres.render.com/talfy_db')
 
 def get_db_connection():
-    conn = psycopg2.connect(DATABASE_URL)
-    return conn
+    return psycopg2.connect(DATABASE_URL)
 
-# Rotta per la registrazione
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.get_json()
-
-    user_type = data.get("user_type")
-    email = data.get("email")
-    password = data.get("password")
-
-    if not all([user_type, email, password]):
-        return jsonify({"success": False, "error": "Missing required fields"}), 400
+    email = data.get('email')
+    password = data.get('password')
+    is_company = data.get('is_company', False)
 
     conn = get_db_connection()
     cur = conn.cursor()
+    cur.execute("SELECT * FROM myschema.users WHERE email = %s", (email,))
+    existing = cur.fetchone()
 
-    try:
-        if user_type == "candidate":
-            cur.execute("SELECT id FROM candidates WHERE email = %s", (email,))
-            if cur.fetchone():
-                return jsonify({"success": False, "error": "Email already registered"}), 409
+    if existing:
+        return jsonify({'success': False, 'message': 'Email already registered.'}), 409
 
-            cur.execute("""
-                INSERT INTO candidates (email, password)
-                VALUES (%s, %s)
-                RETURNING id
-            """, (email, password))
+    cur.execute("INSERT INTO myschema.users (email, password, is_company) VALUES (%s, %s, %s)", 
+                (email, password, is_company))
+    conn.commit()
+    cur.close()
+    conn.close()
 
-        elif user_type == "company":
-            cur.execute("SELECT id FROM companies WHERE email = %s", (email,))
-            if cur.fetchone():
-                return jsonify({"success": False, "error": "Email already registered"}), 409
+    return jsonify({'success': True})
 
-            cur.execute("""
-                INSERT INTO companies (email, password)
-                VALUES (%s, %s)
-                RETURNING id
-            """, (email, password))
-
-        else:
-            return jsonify({"success": False, "error": "Invalid user_type"}), 400
-
-        user_id = cur.fetchone()[0]
-        conn.commit()
-        return jsonify({"success": True, "id": user_id})
-
-    except Exception as e:
-        conn.rollback()
-        return jsonify({"success": False, "error": "Server error"}), 500
-
-    finally:
-        cur.close()
-        conn.close()
-
-# Rotta per il contatore
-@app.route('/api/count', methods=['GET'])
+@app.route('/api/counts', methods=['GET'])
 def get_counts():
     conn = get_db_connection()
     cur = conn.cursor()
-    try:
-        cur.execute("SELECT COUNT(*) FROM candidates")
-        candidate_count = cur.fetchone()[0]
-
-        cur.execute("SELECT COUNT(*) FROM companies")
-        company_count = cur.fetchone()[0]
-
-        return jsonify({
-            "candidates": candidate_count,
-            "companies": company_count
-        })
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        cur.close()
-        conn.close()
+    cur.execute("SELECT COUNT(*) FROM myschema.users WHERE is_company = FALSE")
+    candidates = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) FROM myschema.users WHERE is_company = TRUE")
+    companies = cur.fetchone()[0]
+    cur.close()
+    conn.close()
+    return jsonify({'candidates': candidates, 'companies': companies})
 
 if __name__ == '__main__':
     app.run(debug=True)
