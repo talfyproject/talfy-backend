@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Complete Candidate Profile - Talfy</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>Complete your profile</h1>
+  </header>
+
+  <main>
+    <form id="candidate-profile-form">
+      <label>Full Name:
+        <input type="text" name="full_name" required />
+      </label>
+
+      <label>Job Title:
+        <select name="job_title" required>
+          <option value="">Select a job title</option>
+          <option>Finance Manager</option>
+          <option>Administrative Manager</option>
+          <option>Junior Controller</option>
+          <option>Payable Accountant</option>
+          <option>Receivable Accountant</option>
+          <option>General Accountant</option>
+          <option>Credit Manager</option>
+          <option>Risk Manager</option>
+          <option>Auditor</option>
+          <option>Junior Auditor</option>
+          <option>Treasury Specialist</option>
+        </select>
+      </label>
+
+      <label>Years of Experience:
+        <input type="number" name="experience_years" min="0" required />
+      </label>
+
+      <label>Salary Range (€):
+        <input type="text" name="salary_range" placeholder="e.g. 35,000 - 45,000" />
+      </label>
+
+      <label>Industry:
+        <input type="text" name="industry" required />
+      </label>
+
+      <label>English Level:
+        <select name="english_level" required>
+          <option value="">Select level</option>
+          <option>A1</option>
+          <option>A2</option>
+          <option>B1</option>
+          <option>B2</option>
+          <option>C1</option>
+          <option>Native</option>
+        </select>
+      </label>
+
+      <label>Tools Known:
+        <textarea name="tools" placeholder="SAP, Excel, Oracle..."></textarea>
+      </label>
+
+      <label>Education Level:
+        <select name="education_level" required>
+          <option value="">Select degree</option>
+          <option>High School Diploma</option>
+          <option>Bachelor's Degree</option>
+          <option>Master's Degree</option>
+          <option>Other</option>
+        </select>
+      </label>
+
+      <label>Education Area:
+        <input type="text" name="education_area" placeholder="Finance, Engineering, Linguistics..." />
+      </label>
+
+      <button type="submit">Submit Profile</button>
+    </form>
+  </main>
+
+  <script>
+    document.getElementById("candidate-profile-form").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      const form = e.target;
+      const data = Object.fromEntries(new FormData(form).entries());
+
+      const response = await fetch("/api/candidate-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        alert("Profile submitted successfully!");
+        form.reset();
+      } else {
+        alert("Error submitting profile.");
+      }
+    });
+  </script>
+</body>
+</html>
