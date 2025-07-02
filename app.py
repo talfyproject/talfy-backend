@@ -1,76 +1,102 @@
-from flask import Flask, request, jsonify, render_template
-from werkzeug.security import generate_password_hash
-import psycopg2
-from psycopg2.extras import RealDictCursor
+from fastapi import FastAPI, Request, Form, Depends, HTTPException
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
+import asyncpg
+import os
 
-app = Flask(__name__)
+app = FastAPI()
 
-# Connessione al database PostgreSQL su Render
-conn = psycopg2.connect(
-    dbname="talfy_db",
-    user="talfy_db_user",
-    password="1POTty3Z6HosHBD8TDtzh2hWqcVFdRAq",
-    host="dpg-d1gdskqli9vc73ahklag-a.frankfurt-postgres.render.com",
-    port="5432"
-)
+# Middleware per gestire le sessioni utente
+app.add_middleware(SessionMiddleware, secret_key="supersecret")
 
-# 🔹 Endpoint per visualizzare il form candidato
-@app.route("/complete-profile")
-def complete_profile_page():
-    return render_template("complete-profile-candidate.html")
+# Static & template directories
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
 
-# 🔹 Endpoint per registrare un nuovo utente
-@app.route("/api/register", methods=["POST"])
-def register_user():
-    data = request.get_json()
+# PostgreSQL connection string
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://talfy_db_user:...")  # aggiorna qui
 
-    email = data.get("email")
-    raw_password = data.get("password")
-    is_company = data.get("is_company", False)
-
-    hashed_password = generate_password_hash(raw_password)
-
+# Connessione DB
+async def get_db():
+    conn = await asyncpg.connect(DATABASE_URL)
     try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO myschema.users (email, password, is_company)
-                VALUES (%s, %s, %s)
-                RETURNING id
-            """, (email, hashed_password, is_company))
-            user_id = cur.fetchone()[0]
-            conn.commit()
-        return jsonify({"message": "User registered successfully", "user_id": user_id}), 200
-    except Exception as e:
-        print("Registration error:", e)
-        return jsonify({"error": "Registration failed"}), 400
+        yield conn
+    finally:
+        await conn.close()
 
-# 🔹 Endpoint per salvare il profilo candidato
-@app.route("/api/candidate-profile", methods=["POST"])
-def save_candidate_profile():
-    data = request.get_json()
+# === ROTTA HOMEPAGE / CONTATORI ===
+@app.get("/api/stats")
+async def get_stats(db=Depends(get_db)):
+    total_candidates = await db.fetchval("SELECT COUNT(*) FROM candidates")
+    total_companies = await db.fetchval("SELECT COUNT(*) FROM companies")
+    return {
+        "candidates": total_candidates,
+        "companies": total_companies
+    }
 
-    user_id = int(data.get("user_id"))
+# === REGISTRAZIONE ===
+@app.post("/api/register")
+async def register_user(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    confirm_password: str = Form(...),
+    user_type: str = Form(...)  # 'candidate' o 'company'
+):
+    if password != confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
 
-    with conn.cursor() as cur:
-        cur.execute("""
-            INSERT INTO myschema.candidates
-            (user_id, full_name, job_title, experience_years, salary_range, industry, english_level, tools, education_level, education_area)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """, (
-            user_id,
-            data.get("full_name"),
-            data.get("job_title"),
-            data.get("experience_years"),
-            data.get("salary_range"),
-            data.get("industry"),
-            data.get("english_level"),
-            data.get("tools"),
-            data.get("education_level"),
-            data.get("education_area")
-        ))
-        conn.commit()
+    db = await anext(get_db())
+    table = "candidates" if user_type == "candidate" else "companies"
 
-    return jsonify({"message": "Candidate profile saved successfully"}), 200
+    existing = await db.fetchval(f"SELECT COUNT(*) FROM {table} WHERE email=$1", email)
+    if existing > 0:
+        raise HTTPException(status_code=400, detail="User already exists")
 
-if __name__ == "__main__":
-    app.run(debug=True)
+    await db.execute(
+        f"INSERT INTO {table} (email, password) VALUES ($1, $2)",
+        email, password  # NB: Da cifrare con hashing!
+    )
+
+    request.session["user"] = {"email": email, "type": user_type}
+
+    if user_type == "candidate":
+        return RedirectResponse("/complete-profile-candidate.html", status_code=302)
+    else:
+        return RedirectResponse("/complete-profile-company.html", status_code=302)
+
+# === LOGIN ===
+@app.post("/api/login")
+async def login_user(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...)
+):
+    db = await anext(get_db())
+
+    for table in ["candidates", "companies"]:
+        user = await db.fetchrow(
+            f"SELECT * FROM {table} WHERE email=$1 AND password=$2",
+            email, password  # NB: Da cifrare con hashing!
+        )
+        if user:
+            request.session["user"] = {"email": email, "type": table[:-1]}
+            return RedirectResponse("/index.html", status_code=302)
+
+    raise HTTPException(status_code=401, detail="Invalid credentials")
+
+# === CHECK LOGIN (per pagine plan) ===
+@app.get("/check-login")
+async def check_login(request: Request):
+    user = request.session.get("user")
+    if user:
+        return {"logged_in": True, "user_type": user["type"]}
+    return {"logged_in": False}
+
+# === LOGOUT ===
+@app.get("/logout")
+async def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse("/index.html", status_code=302)
