@@ -1,102 +1,82 @@
-from fastapi import FastAPI, Request, Form, Depends, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from starlette.middleware.sessions import SessionMiddleware
-import asyncpg
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import psycopg2
 import os
 
-app = FastAPI()
+app = Flask(__name__)
+CORS(app)
 
-# Middleware per gestire le sessioni utente
-app.add_middleware(SessionMiddleware, secret_key="supersecret")
+# Configurazione del database
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://talfy_db_user:1POTty3Z6HosHBD8TDtzh2hWqcVFdRAq@dpg-d1gdskqli9vc73ahklag-a.frankfurt-postgres.render.com/talfy_db")
 
-# Static & template directories
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+def get_db_connection():
+    conn = psycopg2.connect(DATABASE_URL)
+    return conn
 
-# PostgreSQL connection string
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://talfy_db_user:...")  # aggiorna qui
+# Rotta per la registrazione (candidati o aziende)
+@app.route('/api/register', methods=['POST'])
+def register():
+    data = request.get_json()
 
-# Connessione DB
-async def get_db():
-    conn = await asyncpg.connect(DATABASE_URL)
+    user_type = data.get("user_type")
+    email = data.get("email")
+    password = data.get("password")
+
+    if not all([user_type, email, password]):
+        return jsonify({"error": "Missing required fields"}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
     try:
-        yield conn
+        if user_type == "candidate":
+            cur.execute("""
+                INSERT INTO candidates (email, password)
+                VALUES (%s, %s)
+                RETURNING id
+            """, (email, password))
+        elif user_type == "company":
+            cur.execute("""
+                INSERT INTO companies (email, password)
+                VALUES (%s, %s)
+                RETURNING id
+            """, (email, password))
+        else:
+            return jsonify({"error": "Invalid user_type"}), 400
+
+        user_id = cur.fetchone()[0]
+        conn.commit()
+        return jsonify({"success": True, "id": user_id})
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
     finally:
-        await conn.close()
+        cur.close()
+        conn.close()
 
-# === ROTTA HOMEPAGE / CONTATORI ===
-@app.get("/api/stats")
-async def get_stats(db=Depends(get_db)):
-    total_candidates = await db.fetchval("SELECT COUNT(*) FROM candidates")
-    total_companies = await db.fetchval("SELECT COUNT(*) FROM companies")
-    return {
-        "candidates": total_candidates,
-        "companies": total_companies
-    }
+# Rotta per ottenere il numero totale di candidati e aziende
+@app.route('/api/count', methods=['GET'])
+def get_counts():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT COUNT(*) FROM candidates")
+        candidate_count = cur.fetchone()[0]
 
-# === REGISTRAZIONE ===
-@app.post("/api/register")
-async def register_user(
-    request: Request,
-    email: str = Form(...),
-    password: str = Form(...),
-    confirm_password: str = Form(...),
-    user_type: str = Form(...)  # 'candidate' o 'company'
-):
-    if password != confirm_password:
-        raise HTTPException(status_code=400, detail="Passwords do not match")
+        cur.execute("SELECT COUNT(*) FROM companies")
+        company_count = cur.fetchone()[0]
 
-    db = await anext(get_db())
-    table = "candidates" if user_type == "candidate" else "companies"
+        return jsonify({
+            "candidates": candidate_count,
+            "companies": company_count
+        })
 
-    existing = await db.fetchval(f"SELECT COUNT(*) FROM {table} WHERE email=$1", email)
-    if existing > 0:
-        raise HTTPException(status_code=400, detail="User already exists")
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
 
-    await db.execute(
-        f"INSERT INTO {table} (email, password) VALUES ($1, $2)",
-        email, password  # NB: Da cifrare con hashing!
-    )
-
-    request.session["user"] = {"email": email, "type": user_type}
-
-    if user_type == "candidate":
-        return RedirectResponse("/complete-profile-candidate.html", status_code=302)
-    else:
-        return RedirectResponse("/complete-profile-company.html", status_code=302)
-
-# === LOGIN ===
-@app.post("/api/login")
-async def login_user(
-    request: Request,
-    email: str = Form(...),
-    password: str = Form(...)
-):
-    db = await anext(get_db())
-
-    for table in ["candidates", "companies"]:
-        user = await db.fetchrow(
-            f"SELECT * FROM {table} WHERE email=$1 AND password=$2",
-            email, password  # NB: Da cifrare con hashing!
-        )
-        if user:
-            request.session["user"] = {"email": email, "type": table[:-1]}
-            return RedirectResponse("/index.html", status_code=302)
-
-    raise HTTPException(status_code=401, detail="Invalid credentials")
-
-# === CHECK LOGIN (per pagine plan) ===
-@app.get("/check-login")
-async def check_login(request: Request):
-    user = request.session.get("user")
-    if user:
-        return {"logged_in": True, "user_type": user["type"]}
-    return {"logged_in": False}
-
-# === LOGOUT ===
-@app.get("/logout")
-async def logout(request: Request):
-    request.session.clear()
-    return RedirectResponse("/index.html", status_code=302)
+if __name__ == '__main__':
+    app.run(debug=True)
