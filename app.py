@@ -1,75 +1,48 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask import Flask, request, jsonify, render_template
 import psycopg2
-import os
+from psycopg2.extras import RealDictCursor
 
 app = Flask(__name__)
-CORS(app)
 
-# Connessione al database (Render Postgres)
-from dotenv import load_dotenv
-load_dotenv()
+# Connessione al database PostgreSQL Render
+conn = psycopg2.connect(
+    dbname="talfy_db",
+    user="talfy_db_user",
+    password="1POTty3Z6HosHBD8TDtzh2hWqcVFdRAq",
+    host="dpg-d1gdskqli9vc73ahklag-a.frankfurt-postgres.render.com",
+    port="5432"
+)
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+# 🔹 Endpoint per visualizzare la pagina del form
+@app.route("/complete-profile")
+def complete_profile_page():
+    return render_template("complete-profile-candidate.html")
 
-def get_db_connection():
-    return psycopg2.connect(DATABASE_URL)
-
-# ✅ CREA LA TABELLA USERS SE NON ESISTE
-def create_users_table():
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            email TEXT NOT NULL UNIQUE,
-            password TEXT NOT NULL,
-            is_company BOOLEAN DEFAULT FALSE
-        );
-    """)
-    conn.commit()
-    cur.close()
-    conn.close()
-    print("✅ Tabella 'users' creata o già esistente.")
-
-# REGISTRA UN UTENTE
-@app.route('/api/register', methods=['POST'])
-def register():
+# 🔹 Endpoint che riceve e salva il profilo candidato
+@app.route("/api/candidate-profile", methods=["POST"])
+def save_candidate_profile():
     data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
-    is_company = data.get('is_company', False)
 
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM users WHERE email = %s", (email,))
-    existing = cur.fetchone()
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO myschema.candidates
+            (user_id, full_name, job_title, experience_years, salary_range, industry, english_level, tools, education_level, education_area)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            1,  # user_id fittizio per ora (da collegare a login/registrazione)
+            data.get("full_name"),
+            data.get("job_title"),
+            data.get("experience_years"),
+            data.get("salary_range"),
+            data.get("industry"),
+            data.get("english_level"),
+            data.get("tools"),
+            data.get("education_level"),
+            data.get("education_area")
+        ))
+        conn.commit()
 
-    if existing:
-        return jsonify({'success': False, 'message': 'Email already registered.'}), 409
+    return jsonify({"message": "Candidate profile saved successfully"}), 200
 
-    cur.execute("INSERT INTO users (email, password, is_company) VALUES (%s, %s, %s)", 
-                (email, password, is_company))
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    return jsonify({'success': True})
-
-# OTTIENI IL NUMERO DI CANDIDATI E AZIENDE
-@app.route('/api/counts', methods=['GET'])
-def get_counts():
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT COUNT(*) FROM users WHERE is_company = FALSE")
-    candidates = cur.fetchone()[0]
-    cur.execute("SELECT COUNT(*) FROM users WHERE is_company = TRUE")
-    companies = cur.fetchone()[0]
-    cur.close()
-    conn.close()
-    return jsonify({'candidates': candidates, 'companies': companies})
-
-# AVVIA L'APP
-if __name__ == '__main__':
-    create_users_table()  # ✅ CREA LA TABELLA ALL'AVVIO
+if __name__ == "__main__":
     app.run(debug=True)
