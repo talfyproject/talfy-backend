@@ -7,13 +7,16 @@ app = Flask(__name__)
 CORS(app)
 
 # Configurazione del database
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://talfy_db_user:1POTty3Z6HosHBD8TDtzh2hWqcVFdRAq@dpg-d1gdskqli9vc73ahklag-a.frankfurt-postgres.render.com/talfy_db")
+DATABASE_URL = os.environ.get(
+    "DATABASE_URL",
+    "postgresql://talfy_db_user:1POTty3Z6HosHBD8TDtzh2hWqcVFdRAq@dpg-d1gdskqli9vc73ahklag-a.frankfurt-postgres.render.com/talfy_db"
+)
 
 def get_db_connection():
     conn = psycopg2.connect(DATABASE_URL)
     return conn
 
-# Rotta per la registrazione (candidati o aziende)
+# Rotta per la registrazione
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.get_json()
@@ -23,26 +26,36 @@ def register():
     password = data.get("password")
 
     if not all([user_type, email, password]):
-        return jsonify({"error": "Missing required fields"}), 400
+        return jsonify({"success": False, "error": "Missing required fields"}), 400
 
     conn = get_db_connection()
     cur = conn.cursor()
 
     try:
         if user_type == "candidate":
+            cur.execute("SELECT id FROM candidates WHERE email = %s", (email,))
+            if cur.fetchone():
+                return jsonify({"success": False, "error": "Email already registered"}), 409
+
             cur.execute("""
                 INSERT INTO candidates (email, password)
                 VALUES (%s, %s)
                 RETURNING id
             """, (email, password))
+
         elif user_type == "company":
+            cur.execute("SELECT id FROM companies WHERE email = %s", (email,))
+            if cur.fetchone():
+                return jsonify({"success": False, "error": "Email already registered"}), 409
+
             cur.execute("""
                 INSERT INTO companies (email, password)
                 VALUES (%s, %s)
                 RETURNING id
             """, (email, password))
+
         else:
-            return jsonify({"error": "Invalid user_type"}), 400
+            return jsonify({"success": False, "error": "Invalid user_type"}), 400
 
         user_id = cur.fetchone()[0]
         conn.commit()
@@ -50,12 +63,13 @@ def register():
 
     except Exception as e:
         conn.rollback()
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"success": False, "error": "Server error"}), 500
+
     finally:
         cur.close()
         conn.close()
 
-# Rotta per ottenere il numero totale di candidati e aziende
+# Rotta per il contatore
 @app.route('/api/count', methods=['GET'])
 def get_counts():
     conn = get_db_connection()
