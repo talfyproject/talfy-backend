@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Complete Profile – Candidate</title>
+  <title>Complete Profile – Company</title>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -53,7 +53,7 @@
       margin-top: 1rem;
       margin-bottom: 0.3rem;
     }
-    input, select, textarea {
+    input, select {
       padding: 0.8rem;
       font-size: 1rem;
       border: 1px solid #ccc;
@@ -103,61 +103,34 @@
   </header>
 
   <main class="main">
-    <h1>Complete Your Candidate Profile</h1>
-    <form action="/submit-candidate-profile" method="POST">
-      <label for="fullname">Full Name</label>
-      <input type="text" name="fullname" id="fullname" required />
+    <h1>Complete Your Company Profile</h1>
+    <form action="/submit-company-profile" method="POST">
+      <label for="company_name">Company Name</label>
+      <input type="text" name="company_name" id="company_name" required />
 
-      <label for="experience">Years of Experience</label>
-      <select name="experience" id="experience" required>
-        <option value="">Select</option>
-        <option>0–2</option>
-        <option>3–5</option>
-        <option>6–10</option>
-        <option>11+</option>
-      </select>
-
-      <label for="salary_range">Expected Salary (€)</label>
-      <select name="salary_range" id="salary_range" required>
-        <option value="">Select</option>
-        <option>15–25k</option>
-        <option>25–35k</option>
-        <option>35–50k</option>
-        <option>50–70k</option>
-        <option>70k+</option>
-      </select>
+      <label for="vat_number">VAT Number</label>
+      <input type="text" name="vat_number" id="vat_number" required />
 
       <label for="sector">Industry Sector</label>
       <input type="text" name="sector" id="sector" required />
 
-      <label for="tools">Tools/Software Known</label>
-      <textarea name="tools" id="tools" rows="3" required></textarea>
-
-      <label for="english_level">English Level</label>
-      <select name="english_level" id="english_level" required>
+      <label for="company_size">Company Size</label>
+      <select name="company_size" id="company_size" required>
         <option value="">Select</option>
-        <option>A1</option>
-        <option>A2</option>
-        <option>B1</option>
-        <option>B2</option>
-        <option>C1</option>
-        <option>Native</option>
+        <option>1–10</option>
+        <option>11–50</option>
+        <option>51–200</option>
+        <option>201–500</option>
+        <option>500+</option>
       </select>
 
-      <label for="education">Education Background</label>
-      <select name="education" id="education" required>
-        <option value="">Select</option>
-        <option>High School</option>
-        <option>Bachelor's Degree</option>
-        <option>Master's Degree</option>
-        <option>PhD</option>
-        <option>Other</option>
-      </select>
+      <label for="country">Country</label>
+      <input type="text" name="country" id="country" required />
 
-      <label for="area_of_study">Area of Study</label>
-      <input type="text" name="area_of_study" id="area_of_study" required />
+      <label for="website">Website</label>
+      <input type="url" name="website" id="website" required />
 
-      <button type="submit">Save Profile</button>
+      <button type="submit">Save Company Profile</button>
     </form>
   </main>
 
