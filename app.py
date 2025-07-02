@@ -1,68 +1,54 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+
+from flask import Flask, request, redirect
 import psycopg2
+import bcrypt
 import os
-from dotenv import load_dotenv
 
 app = Flask(__name__)
-CORS(app)
-load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+# Connessione al database PostgreSQL (Render)
+DATABASE_URL = "postgresql://talfy_db_user:1POTty3Z6HosHBD8TDtzh2hWqcVFdRAq@dpg-d1gdskqli9vc73ahklag-a.frankfurt-postgres.render.com/talfy_db"
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL)
 
-@app.route('/api/register', methods=['POST'])
+@app.route("/register", methods=["POST"])
 def register():
-    data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
-    is_company = data.get('is_company', False)
+    email = request.form.get("email")
+    password = request.form.get("password")
+    confirm_password = request.form.get("confirm_password")
+    role = request.form.get("role")
+    job_title = request.form.get("job_title") if role == "candidate" else None
 
-    if not email or not password:
-        return jsonify({'success': False, 'message': 'Missing email or password'}), 400
+    if password != confirm_password:
+        return "Passwords do not match", 400
 
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
+    hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
-        cur.execute("SELECT id FROM myschema.users WHERE email = %s", (email,))
-        if cur.fetchone():
-            return jsonify({'success': False, 'message': 'Email already registered'}), 409
+    conn = get_db_connection()
+    cur = conn.cursor()
 
-        cur.execute(
-            "INSERT INTO myschema.users (email, password, is_company) VALUES (%s, %s, %s) RETURNING id",
-            (email, password, is_company)
-        )
-        user_id = cur.fetchone()[0]
-        conn.commit()
-
-        return jsonify({'success': True, 'id': user_id})
-
-    except Exception as e:
-        print("Server error:", e)
-        return jsonify({'success': False, 'message': 'Internal server error'}), 500
-
-    finally:
+    # Verifica se l'email è già registrata
+    cur.execute("SELECT id FROM users WHERE email = %s", (email,))
+    if cur.fetchone():
         cur.close()
         conn.close()
+        return "Email already registered", 400
 
-@app.route('/api/counts', methods=['GET'])
-def get_counts():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM myschema.users WHERE is_company = FALSE")
-        candidates = cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM myschema.users WHERE is_company = TRUE")
-        companies = cur.fetchone()[0]
-        return jsonify({'candidates': candidates, 'companies': companies})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    finally:
-        cur.close()
-        conn.close()
+    # Inserimento nuovo utente
+    cur.execute(
+        "INSERT INTO users (email, password, role, job_title) VALUES (%s, %s, %s, %s)",
+        (email, hashed, role, job_title)
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
 
-if __name__ == '__main__':
+    # Reindirizzamento
+    if role == "candidate":
+        return redirect("/complete-profile-candidate.html")
+    else:
+        return redirect("/complete-profile-company.html")
+
+if __name__ == "__main__":
     app.run(debug=True)
