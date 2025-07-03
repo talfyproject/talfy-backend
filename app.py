@@ -9,15 +9,29 @@ CORS(app)
 # Configura il database PostgreSQL
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://talfy_db_user:1POTty3Z6HosHBD8TDtzh2hWqcVFdRAq@dpg-d1gdskqli9vc73ahklag-a.frankfurt-postgres.render.com/talfy_db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 db = SQLAlchemy(app)
 
-# Modelli per User
+# Modello User
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(20), nullable=False)
     job_title = db.Column(db.String(100), nullable=True)
+
+# Modello CandidateProfile
+class CandidateProfile(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    fullname = db.Column(db.String(100), nullable=False)
+    experience = db.Column(db.String(20), nullable=False)
+    salary_range = db.Column(db.String(30), nullable=False)
+    sector = db.Column(db.String(100), nullable=False)
+    tools = db.Column(db.Text, nullable=False)
+    english_level = db.Column(db.String(20), nullable=False)
+    education = db.Column(db.String(50), nullable=False)
+    area_of_study = db.Column(db.String(100), nullable=False)
 
 # Endpoint per la registrazione
 @app.route('/register', methods=['POST'])
@@ -48,7 +62,36 @@ def register():
     except Exception as e:
         return f"Error: {str(e)}", 500
 
-# Endpoint base (opzionale)
+# Endpoint per il salvataggio del profilo candidato
+@app.route('/submit-candidate-profile', methods=['POST'])
+def submit_candidate_profile():
+    try:
+        data = request.form
+
+        # Per ora associamo al primo utente candidato (in futuro user session/token)
+        user = User.query.filter_by(role='candidate').order_by(User.id.desc()).first()
+        if not user:
+            return "No candidate user found", 404
+
+        profile = CandidateProfile(
+            user_id=user.id,
+            fullname=data.get('fullname'),
+            experience=data.get('experience'),
+            salary_range=data.get('salary_range'),
+            sector=data.get('sector'),
+            tools=data.get('tools'),
+            english_level=data.get('english_level'),
+            education=data.get('education'),
+            area_of_study=data.get('area_of_study')
+        )
+        db.session.add(profile)
+        db.session.commit()
+
+        return redirect('/thank-you.html')
+    except Exception as e:
+        return f"Error: {str(e)}", 500
+
+# Endpoint base
 @app.route('/')
 def home():
     return 'Talfy backend running'
