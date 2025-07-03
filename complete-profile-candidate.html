@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Complete Profile – Candidate</title>
   <style>
     body {
@@ -19,13 +19,13 @@
       align-items: center;
       padding: 1.2rem 2rem;
       border-bottom: 1px solid #e5e5e5;
+      position: relative;
     }
     .logo {
       font-size: 3rem;
       font-weight: 700;
       color: #134e3a;
       text-transform: lowercase;
-      margin: 0;
       text-decoration: none;
     }
     .nav {
@@ -38,39 +38,44 @@
       font-size: 0.95rem;
       font-weight: 500;
     }
-    .menu-icon {
+    .hamburger {
       display: none;
-      font-size: 2rem;
+      flex-direction: column;
       cursor: pointer;
     }
-    @media (max-width: 768px) {
-      .nav {
-        display: none;
-        flex-direction: column;
-        position: absolute;
-        top: 60px;
-        left: 0;
-        right: 0;
-        background: #fff;
-        padding: 1rem 2rem;
-        border-top: 1px solid #ccc;
-      }
-      .nav.active {
-        display: flex;
-      }
-      .menu-icon {
-        display: block;
-      }
+    .hamburger div {
+      width: 25px;
+      height: 3px;
+      background-color: #0d1b2a;
+      margin: 4px 0;
+    }
+    .mobile-menu {
+      display: none;
+      flex-direction: column;
+      position: absolute;
+      top: 100%;
+      right: 2rem;
+      background-color: #fff;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      z-index: 1000;
+    }
+    .mobile-menu a {
+      padding: 1rem;
+      border-bottom: 1px solid #eee;
+      text-decoration: none;
+      color: #0d1b2a;
     }
     .main {
-      max-width: 500px;
+      max-width: 800px;
       margin: 3rem auto;
-      padding: 0 2rem;
+      padding: 0 8vw;
+      background: #fff;
     }
     h1 {
-      text-align: center;
-      font-size: 2rem;
+      font-weight: 700;
+      font-size: 2.2rem;
       margin-bottom: 2rem;
+      text-align: center;
     }
     form {
       display: flex;
@@ -106,34 +111,67 @@
       border-top: 1px solid #e5e5e5;
       font-size: 0.85rem;
       color: #0d1b2a;
+      position: relative;
+    }
+    .footer-center {
       text-align: center;
     }
-    .footer a {
-      color: #134e3a;
+    .footer-right {
+      position: absolute;
+      bottom: 1.2rem;
+      right: 2rem;
+    }
+    .footer-right a {
       text-decoration: none;
+      color: #134e3a;
       font-weight: 500;
     }
-  </style>
-  <script>
-    function toggleMenu() {
-      const nav = document.querySelector('.nav');
-      nav.classList.toggle('active');
+
+    @media (max-width: 768px) {
+      .nav {
+        display: none;
+      }
+      .hamburger {
+        display: flex;
+      }
+      .mobile-menu.show {
+        display: flex;
+        width: 200px;
+      }
+      .footer-right {
+        position: static;
+        text-align: center;
+        margin-top: 1rem;
+      }
     }
-  </script>
+  </style>
 </head>
 <body>
   <header class="header">
     <a href="/index.html" class="logo">talfy</a>
-    <span class="menu-icon" onclick="toggleMenu()">&#9776;</span>
     <nav class="nav">
       <a href="/talfy-for-talent.html">Talfy for Talent</a>
       <a href="/talfy-for-company.html">Talfy for Company</a>
+      <a href="/pricing.html">Pricing</a>
       <a href="/about.html">About us</a>
       <a href="/contact.html">Contact</a>
-      <a href="/pricing.html">Pricing</a>
       <a href="/login.html">Login</a>
       <a href="/register.html">Register</a>
     </nav>
+    <div class="hamburger" onclick="toggleMenu()">
+      <div></div>
+      <div></div>
+      <div></div>
+    </div>
+    <div class="mobile-menu" id="mobileMenu">
+      <a href="/talfy-for-talent.html">Talfy for Talent</a>
+      <a href="/talfy-for-company.html">Talfy for Company</a>
+      <a href="/pricing.html">Pricing</a>
+      <a href="/about.html">About us</a>
+      <a href="/contact.html">Contact</a>
+      <a href="/login.html">Login</a>
+      <a href="/register.html">Register</a>
+    </div>
   </header>
 
   <main class="main">
@@ -142,34 +180,32 @@
       <label for="fullname">Full Name</label>
       <input type="text" name="fullname" id="fullname" required />
 
+      <label for="job_title">Job Title</label>
+      <select name="job_title" id="job_title" required>
+        <option value="">Select a job title</option>
+        <option>Finance Manager</option>
+        <option>Controller</option>
+        <option>Accountant</option>
+        <option>Auditor</option>
+        <option>Treasury Specialist</option>
+        <!-- Aggiungeremo altri -->
+      </select>
+
       <label for="experience">Years of Experience</label>
-      <select name="experience" id="experience" required>
-        <option value="">Select</option>
-        <option>0–2</option>
-        <option>3–5</option>
-        <option>6–10</option>
-        <option>11+</option>
-      </select>
+      <input type="text" name="experience" id="experience" placeholder="e.g. 5" required />
 
-      <label for="salary_range">Expected Salary (€)</label>
-      <select name="salary_range" id="salary_range" required>
-        <option value="">Select</option>
-        <option>15–25k</option>
-        <option>25–35k</option>
-        <option>35–50k</option>
-        <option>50–70k</option>
-        <option>70k+</option>
-      </select>
+      <label for="salary">Salary Range (€)</label>
+      <input type="text" name="salary" id="salary" placeholder="e.g. 35,000 – 45,000" required />
 
-      <label for="sector">Industry Sector</label>
+      <label for="sector">Industry</label>
       <input type="text" name="sector" id="sector" required />
 
-      <label for="tools">Tools/Software Known</label>
-      <textarea name="tools" id="tools" rows="3" required></textarea>
+      <label for="tools">Tools Known</label>
+      <textarea name="tools" id="tools" rows="2" placeholder="e.g. SAP, Excel, Oracle..." required></textarea>
 
       <label for="english_level">English Level</label>
       <select name="english_level" id="english_level" required>
-        <option value="">Select</option>
+        <option value="">Select level</option>
         <option>A1</option>
         <option>A2</option>
         <option>B1</option>
@@ -178,9 +214,9 @@
         <option>Native</option>
       </select>
 
-      <label for="education">Education Background</label>
+      <label for="education">Education Level</label>
       <select name="education" id="education" required>
-        <option value="">Select</option>
+        <option value="">Select degree</option>
         <option>High School</option>
         <option>Bachelor's Degree</option>
         <option>Master's Degree</option>
@@ -188,15 +224,25 @@
         <option>Other</option>
       </select>
 
-      <label for="area_of_study">Area of Study</label>
-      <input type="text" name="area_of_study" id="area_of_study" required />
+      <label for="area_of_study">Education Area</label>
+      <input type="text" name="area_of_study" id="area_of_study" placeholder="e.g. Finance, Engineering, Linguistics" required />
 
-      <button type="submit">Save Profile</button>
+      <button type="submit">Submit Profile</button>
     </form>
   </main>
 
   <footer class="footer">
-    <div>&copy; 2025 Talfy · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a></div>
+    <div class="footer-center">&copy; 2025 Talfy. All rights reserved.</div>
+    <div class="footer-right">
+      <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a>
+    </div>
   </footer>
+
+  <script>
+    function toggleMenu() {
+      const menu = document.getElementById("mobileMenu");
+      menu.classList.toggle("show");
+    }
+  </script>
 </body>
 </html>
