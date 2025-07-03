@@ -1,128 +1,58 @@
-
-from flask import Flask, request, redirect
-import psycopg2
-import bcrypt
+from flask import Flask, request, redirect, jsonify
+from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
 import os
 
 app = Flask(__name__)
+CORS(app)
 
-# Connessione al database PostgreSQL (Render)
-DATABASE_URL = "postgresql://talfy_db_user:1POTty3Z6HosHBD8TDtzh2hWqcVFdRAq@dpg-d1gdskqli9vc73ahklag-a.frankfurt-postgres.render.com/talfy_db"
+# Configura il database PostgreSQL
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://talfy_db_user:1POTty3Z6HosHBD8TDtzh2hWqcVFdRAq@dpg-d1gdskqli9vc73ahklag-a.frankfurt-postgres.render.com/talfy_db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
 
-def get_db_connection():
-    return psycopg2.connect(DATABASE_URL)
+# Modelli per User
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password = db.Column(db.String(200), nullable=False)
+    role = db.Column(db.String(20), nullable=False)
+    job_title = db.Column(db.String(100), nullable=True)
 
-@app.route("/register", methods=["POST"])
+# Endpoint per la registrazione
+@app.route('/register', methods=['POST'])
 def register():
-    email = request.form.get("email")
-    password = request.form.get("password")
-    confirm_password = request.form.get("confirm_password")
-    role = request.form.get("role")
-    job_title = request.form.get("job_title") if role == "candidate" else None
+    try:
+        data = request.form
+        email = data.get('email')
+        password = data.get('password')
+        role = data.get('role')
+        job_title = data.get('job_title') if role == 'candidate' else None
 
-    if password != confirm_password:
-        return "Passwords do not match", 400
+        if not email or not password or not role:
+            return "Missing required fields", 400
 
-    hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        existing = User.query.filter_by(email=email).first()
+        if existing:
+            return "Email already registered", 409
 
-    conn = get_db_connection()
-    cur = conn.cursor()
+        new_user = User(email=email, password=password, role=role, job_title=job_title)
+        db.session.add(new_user)
+        db.session.commit()
 
-    # Verifica se l'email è già registrata
-    cur.execute("SELECT id FROM users WHERE email = %s", (email,))
-    if cur.fetchone():
-        cur.close()
-        conn.close()
-        return "Email already registered", 400
+        # Redirect alla pagina giusta dopo la registrazione
+        if role == 'candidate':
+            return redirect('/complete-profile-candidate.html')
+        else:
+            return redirect('/complete-profile-company.html')
+    except Exception as e:
+        return f"Error: {str(e)}", 500
 
-    # Inserimento nuovo utente
-    cur.execute(
-        "INSERT INTO users (email, password, role, job_title) VALUES (%s, %s, %s, %s)",
-        (email, hashed, role, job_title)
-    )
-    conn.commit()
-    cur.close()
-    conn.close()
+# Endpoint base (opzionale)
+@app.route('/')
+def home():
+    return 'Talfy backend running'
 
-    # Reindirizzamento
-    if role == "candidate":
-        return redirect("/complete-profile-candidate.html")
-    else:
-        return redirect("/complete-profile-company.html")
-
-if __name__ == "__main__":
-    app.run(debug=True)
-
-@app.route("/submit-candidate-profile", methods=["POST"])
-def submit_candidate_profile():
-    data = request.form
-    email = request.cookies.get("user_email")  # Assumiamo che l'email sia salvata nei cookie dopo login/registrazione
-
-    conn = get_db_connection()
-    cur = conn.cursor()
-
-    cur.execute("SELECT id FROM users WHERE email = %s", (email,))
-    user = cur.fetchone()
-    if not user:
-        return "User not found", 400
-
-    user_id = user[0]
-
-    cur.execute(
-        """
-        INSERT INTO candidates (user_id, fullname, experience, salary_range, sector, tools,
-                                english_level, education, area_of_study)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """,
-        (
-            user_id,
-            data.get("fullname"),
-            data.get("experience"),
-            data.get("salary_range"),
-            data.get("sector"),
-            data.get("tools"),
-            data.get("english_level"),
-            data.get("education"),
-            data.get("area_of_study")
-        )
-    )
-    conn.commit()
-    cur.close()
-    conn.close()
-    return "Candidate profile saved successfully!"
-
-@app.route("/submit-company-profile", methods=["POST"])
-def submit_company_profile():
-    data = request.form
-    email = request.cookies.get("user_email")  # Assumiamo che l'email sia salvata nei cookie
-
-    conn = get_db_connection()
-    cur = conn.cursor()
-
-    cur.execute("SELECT id FROM users WHERE email = %s", (email,))
-    user = cur.fetchone()
-    if not user:
-        return "User not found", 400
-
-    user_id = user[0]
-
-    cur.execute(
-        """
-        INSERT INTO companies (user_id, company_name, vat_number, sector,
-                               company_size, country, website)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """,
-        (
-            user_id,
-            data.get("company_name"),
-            data.get("vat_number"),
-            data.get("sector"),
-            data.get("company_size"),
-            data.get("country"),
-            data.get("website")
-        )
-    )
-    conn.commit()
-    cur.close()
-    conn.close()
-    return "Company profile saved successfully!"
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=True, host='0.0.0.0', port=port)
