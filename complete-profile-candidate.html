@@ -28,12 +28,39 @@
       margin: 0;
       text-decoration: none;
     }
+    .nav {
+      display: flex;
+    }
     .nav a {
       margin-left: 1.5rem;
       text-decoration: none;
       color: #0d1b2a;
       font-size: 0.95rem;
       font-weight: 500;
+    }
+    .menu-icon {
+      display: none;
+      font-size: 2rem;
+      cursor: pointer;
+    }
+    @media (max-width: 768px) {
+      .nav {
+        display: none;
+        flex-direction: column;
+        position: absolute;
+        top: 60px;
+        left: 0;
+        right: 0;
+        background: #fff;
+        padding: 1rem 2rem;
+        border-top: 1px solid #ccc;
+      }
+      .nav.active {
+        display: flex;
+      }
+      .menu-icon {
+        display: block;
+      }
     }
     .main {
       max-width: 500px;
@@ -87,10 +114,17 @@
       font-weight: 500;
     }
   </style>
+  <script>
+    function toggleMenu() {
+      const nav = document.querySelector('.nav');
+      nav.classList.toggle('active');
+    }
+  </script>
 </head>
 <body>
   <header class="header">
     <a href="/index.html" class="logo">talfy</a>
+    <span class="menu-icon" onclick="toggleMenu()">&#9776;</span>
     <nav class="nav">
       <a href="/talfy-for-talent.html">Talfy for Talent</a>
       <a href="/talfy-for-company.html">Talfy for Company</a>
