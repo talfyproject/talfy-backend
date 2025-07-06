@@ -1,12 +1,11 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-import os
 
 app = Flask(__name__)
 CORS(app)
 
-# Database connection string (Render PostgreSQL)
+# Database config
 app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://talfy_db_user:1POTty3Z6HosHBD8TDtzh2hWqcVFdRAq@dpg-d1gdskqli9vc73ahklag-a.frankfurt-postgres.render.com/talfy_db"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -18,6 +17,17 @@ class User(db.Model):
     email = db.Column(db.String(255), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
     user_type = db.Column(db.String(50), nullable=False)  # 'candidate' or 'company'
+
+class Candidate(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    first_name = db.Column(db.String(100))
+    last_name = db.Column(db.String(100))
+    current_job = db.Column(db.String(100))
+    experience_years = db.Column(db.Integer)
+    salary_range = db.Column(db.String(50))
+    sector = db.Column(db.String(100))
+    tools = db.Column(db.String(255))
+    avatar_url = db.Column(db.String(255))
 
 # ROUTES
 @app.route("/")
@@ -52,7 +62,26 @@ def get_counts():
         "companies": company_count
     })
 
-# TEMPORARY: DB init endpoint (delete after use if you want)
+@app.route("/api/candidates", methods=["GET"])
+def get_candidates():
+    candidates = Candidate.query.all()
+    result = []
+
+    for c in candidates:
+        display_name = f"{c.first_name} {c.last_name[0]}." if c.last_name else c.first_name
+        result.append({
+            "display_name": display_name,
+            "current_job": c.current_job,
+            "experience_years": c.experience_years,
+            "salary_range": c.salary_range,
+            "sector": c.sector,
+            "tools": c.tools,
+            "avatar": c.avatar_url or "/img/avatar-male.png"
+        })
+
+    return jsonify(result)
+
+# TEMPORARY: Initialize DB (run once)
 @app.route("/init-db")
 def init_db():
     try:
@@ -61,6 +90,6 @@ def init_db():
     except Exception as e:
         return f"Error: {e}", 500
 
-# Main
+# MAIN
 if __name__ == "__main__":
     app.run(debug=True)
