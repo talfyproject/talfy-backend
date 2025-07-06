@@ -52,7 +52,7 @@ def register():
     db.session.add(new_user)
     db.session.commit()
 
-    return jsonify({"message": "Registration successful"}), 201
+    return jsonify({"message": "Registration successful", "user_id": new_user.id}), 201
 
 @app.route("/api/counts", methods=["GET"])
 def get_counts():
@@ -77,6 +77,11 @@ def save_candidate_profile():
 
     if not user_id:
         return jsonify({"error": "Missing user_id"}), 400
+
+    # Check if profile already exists
+    existing_profile = CandidateProfile.query.filter_by(user_id=user_id).first()
+    if existing_profile:
+        return jsonify({"error": "Profile already exists"}), 409
 
     profile = CandidateProfile(
         user_id=user_id,
@@ -121,3 +126,4 @@ def init_db():
 # Main
 if __name__ == "__main__":
     app.run(debug=True)
+
