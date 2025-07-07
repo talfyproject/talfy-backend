@@ -6,7 +6,7 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# Database connection string (Render PostgreSQL)
+# DATABASE CONFIG
 app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://talfy_db_user:1POTty3Z6HosHBD8TDtzh2hWqcVFdRAq@dpg-d1gdskqli9vc73ahklag-a.frankfurt-postgres.render.com/talfy_db"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -33,112 +33,106 @@ class CandidateProfile(db.Model):
 # ROUTES
 @app.route("/")
 def home():
-    return "Talfy Backend Running!"
+    return "✅ Talfy Backend Running!"
 
 @app.route("/register", methods=["POST"])
 def register():
-    data = request.get_json()
-    email = data.get("email")
-    password = data.get("password")
-    user_type = data.get("user_type")
+    try:
+        data = request.get_json()
+        email = data.get("email")
+        password = data.get("password")
+        user_type = data.get("user_type")
 
-    if not all([email, password, user_type]):
-        return jsonify({"error": "Missing fields"}), 400
+        if not all([email, password, user_type]):
+            return jsonify({"error": "Missing fields"}), 400
 
-    if User.query.filter_by(email=email).first():
-        return jsonify({"error": "Email already exists"}), 409
+        if User.query.filter_by(email=email).first():
+            return jsonify({"error": "Email already exists"}), 409
 
-    new_user = User(email=email, password=password, user_type=user_type)
-    db.session.add(new_user)
-    db.session.commit()
+        new_user = User(email=email, password=password, user_type=user_type)
+        db.session.add(new_user)
+        db.session.commit()
 
-    return jsonify({"message": "Registration successful", "user_id": new_user.id}), 201
+        return jsonify({"message": "Registration successful", "user_id": new_user.id}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/counts", methods=["GET"])
 def get_counts():
-    candidate_count = User.query.filter_by(user_type="candidate").count()
-    company_count = User.query.filter_by(user_type="company").count()
-    return jsonify({
-        "candidates": candidate_count,
-        "companies": company_count
-    })
+    try:
+        candidate_count = User.query.filter_by(user_type="candidate").count()
+        company_count = User.query.filter_by(user_type="company").count()
+        return jsonify({
+            "candidates": candidate_count,
+            "companies": company_count
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/save-candidate-profile", methods=["POST"])
 def save_candidate_profile():
-    data = request.get_json()
-    user_id = data.get("user_id")
-    display_name = data.get("display_name")
-    current_job = data.get("current_job")
-    experience_years = data.get("experience_years")
-    salary_range = data.get("salary_range")
-    sector = data.get("sector")
-    tools = data.get("tools")
-    avatar = data.get("avatar")
+    try:
+        data = request.get_json()
+        user_id = data.get("user_id")
+        display_name = data.get("display_name")
+        current_job = data.get("current_job")
+        experience_years = data.get("experience_years")
+        salary_range = data.get("salary_range")
+        sector = data.get("sector")
+        tools = data.get("tools")
+        avatar = data.get("avatar")
 
-    if not user_id:
-        return jsonify({"error": "Missing user_id"}), 400
+        if not user_id or not display_name:
+            return jsonify({"error": "Missing user_id or display_name"}), 400
 
-    existing_profile = CandidateProfile.query.filter_by(user_id=user_id).first()
-    if existing_profile:
-        return jsonify({"error": "Profile already exists"}), 409
+        existing_profile = CandidateProfile.query.filter_by(user_id=user_id).first()
+        if existing_profile:
+            return jsonify({"error": "Profile already exists"}), 409
 
-    profile = CandidateProfile(
-        user_id=user_id,
-        display_name=display_name,
-        current_job=current_job,
-        experience_years=experience_years,
-        salary_range=salary_range,
-        sector=sector,
-        tools=tools,
-        avatar=avatar
-    )
-    db.session.add(profile)
-    db.session.commit()
+        profile = CandidateProfile(
+            user_id=user_id,
+            display_name=display_name,
+            current_job=current_job,
+            experience_years=experience_years,
+            salary_range=salary_range,
+            sector=sector,
+            tools=tools,
+            avatar=avatar
+        )
+        db.session.add(profile)
+        db.session.commit()
 
-    return jsonify({"message": "Profile saved"}), 201
+        return jsonify({"message": "Profile saved"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/candidates", methods=["GET"])
 def get_candidates():
-    candidates = CandidateProfile.query.all()
-    result = []
-    for c in candidates:
-        result.append({
-            "id": c.id,  # ✅ NECESSARIO per candidate.html dinamico
-            "display_name": c.display_name,
-            "current_job": c.current_job,
-            "experience_years": c.experience_years,
-            "salary_range": c.salary_range,
-            "sector": c.sector,
-            "tools": c.tools,
-            "avatar": c.avatar
-        })
-    return jsonify(result)
+    try:
+        candidates = CandidateProfile.query.all()
+        result = []
+        for c in candidates:
+            result.append({
+                "id": c.id,
+                "display_name": c.display_name,
+                "current_job": c.current_job,
+                "experience_years": c.experience_years,
+                "salary_range": c.salary_range,
+                "sector": c.sector,
+                "tools": c.tools,
+                "avatar": c.avatar
+            })
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": f"Error loading candidates: {str(e)}"}), 500
 
-@app.route("/api/candidate/<int:id>", methods=["GET"])
-def get_candidate_by_id(id):
-    candidate = CandidateProfile.query.get(id)
-    if not candidate:
-        return jsonify({"error": "Candidate not found"}), 404
-
-    return jsonify({
-        "id": candidate.id,
-        "display_name": candidate.display_name,
-        "current_job": candidate.current_job,
-        "experience_years": candidate.experience_years,
-        "salary_range": candidate.salary_range,
-        "sector": candidate.sector,
-        "tools": candidate.tools,
-        "avatar": candidate.avatar
-    })
-
-# TEMPORARY: DB init endpoint
 @app.route("/init-db")
 def init_db():
     try:
         db.create_all()
-        return "Database initialized with all tables.", 200
+        return "✅ Database initialized successfully", 200
     except Exception as e:
-        return f"Error: {e}", 500
+        return f"❌ Error initializing DB: {e}", 500
 
 # MAIN
 if __name__ == "__main__":
