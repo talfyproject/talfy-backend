@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-import os
 
 app = Flask(__name__)
 CORS(app)
@@ -29,6 +28,15 @@ class CandidateProfile(db.Model):
     sector = db.Column(db.String(100))
     tools = db.Column(db.String(255))
     avatar = db.Column(db.String(255))
+
+class CompanyProfile(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    company_name = db.Column(db.String(100), nullable=False)
+    sector = db.Column(db.String(100))
+    num_employees = db.Column(db.Integer)
+    headquarters = db.Column(db.String(100))
+    logo = db.Column(db.String(255))
 
 # ROUTES
 @app.route("/")
@@ -102,7 +110,40 @@ def save_candidate_profile():
         db.session.add(profile)
         db.session.commit()
 
-        return jsonify({"message": "Profile saved"}), 201
+        return jsonify({"message": "Candidate profile saved"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/save-company-profile", methods=["POST"])
+def save_company_profile():
+    try:
+        data = request.get_json()
+        user_id = data.get("user_id")
+        company_name = data.get("company_name")
+        sector = data.get("sector")
+        num_employees = data.get("num_employees")
+        headquarters = data.get("headquarters")
+        logo = data.get("logo")
+
+        if not user_id or not company_name:
+            return jsonify({"error": "Missing user_id or company_name"}), 400
+
+        existing_profile = CompanyProfile.query.filter_by(user_id=user_id).first()
+        if existing_profile:
+            return jsonify({"error": "Company profile already exists"}), 409
+
+        profile = CompanyProfile(
+            user_id=user_id,
+            company_name=company_name,
+            sector=sector,
+            num_employees=num_employees,
+            headquarters=headquarters,
+            logo=logo
+        )
+        db.session.add(profile)
+        db.session.commit()
+
+        return jsonify({"message": "Company profile saved"}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -125,6 +166,24 @@ def get_candidates():
         return jsonify(result), 200
     except Exception as e:
         return jsonify({"error": f"Error loading candidates: {str(e)}"}), 500
+
+@app.route("/api/companies", methods=["GET"])
+def get_companies():
+    try:
+        companies = CompanyProfile.query.all()
+        result = []
+        for c in companies:
+            result.append({
+                "id": c.id,
+                "company_name": c.company_name,
+                "sector": c.sector,
+                "num_employees": c.num_employees,
+                "headquarters": c.headquarters,
+                "logo": c.logo
+            })
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": f"Error loading companies: {str(e)}"}), 500
 
 @app.route("/init-db")
 def init_db():
