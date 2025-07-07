@@ -78,7 +78,6 @@ def save_candidate_profile():
     if not user_id:
         return jsonify({"error": "Missing user_id"}), 400
 
-    # Check if profile already exists
     existing_profile = CandidateProfile.query.filter_by(user_id=user_id).first()
     if existing_profile:
         return jsonify({"error": "Profile already exists"}), 409
@@ -104,6 +103,7 @@ def get_candidates():
     result = []
     for c in candidates:
         result.append({
+            "id": c.id,  # ✅ NECESSARIO per candidate.html dinamico
             "display_name": c.display_name,
             "current_job": c.current_job,
             "experience_years": c.experience_years,
@@ -114,7 +114,24 @@ def get_candidates():
         })
     return jsonify(result)
 
-# TEMPORARY: DB init endpoint (delete after use if you want)
+@app.route("/api/candidate/<int:id>", methods=["GET"])
+def get_candidate_by_id(id):
+    candidate = CandidateProfile.query.get(id)
+    if not candidate:
+        return jsonify({"error": "Candidate not found"}), 404
+
+    return jsonify({
+        "id": candidate.id,
+        "display_name": candidate.display_name,
+        "current_job": candidate.current_job,
+        "experience_years": candidate.experience_years,
+        "salary_range": candidate.salary_range,
+        "sector": candidate.sector,
+        "tools": candidate.tools,
+        "avatar": candidate.avatar
+    })
+
+# TEMPORARY: DB init endpoint
 @app.route("/init-db")
 def init_db():
     try:
@@ -123,7 +140,6 @@ def init_db():
     except Exception as e:
         return f"Error: {e}", 500
 
-# Main
+# MAIN
 if __name__ == "__main__":
     app.run(debug=True)
-
