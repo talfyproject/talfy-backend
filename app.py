@@ -202,7 +202,48 @@ def init_db():
         return "✅ Database initialized successfully", 200
     except Exception as e:
         return f"❌ Error initializing DB: {e}", 500
+@app.route("/admin-data")
+def admin_data():
+    try:
+        users = User.query.all()
+        candidates = CandidateProfile.query.all()
+        companies = CompanyProfile.query.all()
 
+        users_data = []
+        for u in users:
+            users_data.append({
+                "id": u.id,
+                "email": u.email,
+                "type": u.user_type
+            })
+
+        candidate_data = []
+        for c in candidates:
+            candidate_data.append({
+                "id": c.id,
+                "user_id": c.user_id,
+                "name": c.display_name,
+                "job": c.current_job,
+                "years": c.experience_years
+            })
+
+        company_data = []
+        for c in companies:
+            company_data.append({
+                "id": c.id,
+                "user_id": c.user_id,
+                "name": c.company_name,
+                "sector": c.sector,
+                "hq": c.headquarters
+            })
+
+        return jsonify({
+            "users": users_data,
+            "candidates": candidate_data,
+            "companies": company_data
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 # MAIN
 if __name__ == "__main__":
     app.run(debug=True)
