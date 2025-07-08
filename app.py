@@ -214,27 +214,28 @@ def admin_data():
             users_data.append({
                 "id": u.id,
                 "email": u.email,
-                "type": u.user_type
+                "user_type": u.user_type
             })
 
         candidate_data = []
         for c in candidates:
             candidate_data.append({
                 "id": c.id,
-                "user_id": c.user_id,
-                "name": c.display_name,
-                "job": c.current_job,
-                "years": c.experience_years
+                "display_name": c.display_name,
+                "current_job": c.current_job,
+                "experience_years": c.experience_years,
+                "sector": c.sector,
+                "tools": c.tools
             })
 
         company_data = []
         for c in companies:
             company_data.append({
                 "id": c.id,
-                "user_id": c.user_id,
-                "name": c.company_name,
+                "company_name": c.company_name,
                 "sector": c.sector,
-                "hq": c.headquarters
+                "num_employees": c.num_employees,
+                "headquarters": c.headquarters
             })
 
         return jsonify({
