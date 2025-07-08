@@ -13,14 +13,18 @@ db = SQLAlchemy(app)
 
 # MODELS
 class User(db.Model):
+    __tablename__ = 'user'
+    __table_args__ = {'schema': 'public'}
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(255), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
     user_type = db.Column(db.String(50), nullable=False)  # 'candidate' or 'company'
 
 class CandidateProfile(db.Model):
+    __tablename__ = 'candidate_profile'
+    __table_args__ = {'schema': 'public'}
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('public.user.id'), nullable=False)
     display_name = db.Column(db.String(100), nullable=False)
     current_job = db.Column(db.String(100))
     experience_years = db.Column(db.Integer)
@@ -30,8 +34,10 @@ class CandidateProfile(db.Model):
     avatar = db.Column(db.String(255))
 
 class CompanyProfile(db.Model):
+    __tablename__ = 'company_profile'
+    __table_args__ = {'schema': 'public'}
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('public.user.id'), nullable=False)
     company_name = db.Column(db.String(100), nullable=False)
     sector = db.Column(db.String(100))
     num_employees = db.Column(db.Integer)
