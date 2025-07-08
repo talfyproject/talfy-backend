@@ -74,8 +74,12 @@ def register():
 @app.route("/api/counts", methods=["GET"])
 def get_counts():
     try:
-        candidate_count = User.query.filter_by(user_type="candidate").count()
-        company_count = User.query.filter_by(user_type="company").count()
+        # Conta solo i candidati che hanno completato il profilo
+        candidate_count = db.session.query(CandidateProfile).count()
+
+        # Conta solo le aziende che hanno completato il profilo
+        company_count = db.session.query(CompanyProfile).count()
+
         return jsonify({
             "candidates": candidate_count,
             "companies": company_count
