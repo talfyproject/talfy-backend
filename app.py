@@ -245,6 +245,29 @@ def admin_data():
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+@app.route("/api/login", methods=["POST"])
+def login():
+    try:
+        data = request.get_json()
+        email = data.get("email")
+        password = data.get("password")
+
+        if not email or not password:
+            return jsonify({"error": "Missing email or password"}), 400
+
+        user = User.query.filter_by(email=email, password=password).first()
+        if not user:
+            return jsonify({"error": "Invalid credentials"}), 401
+
+        return jsonify({
+            "user_id": user.id,
+            "user_type": user.user_type
+        }), 200
+
+    except Exception as e:
+        print("❌ LOGIN ERROR:", e)
+        return jsonify({"error": "Server error"}), 500
+
 # MAIN
 if __name__ == "__main__":
     app.run(debug=True)
