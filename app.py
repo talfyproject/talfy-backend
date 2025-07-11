@@ -3,11 +3,12 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": ["https://www.talfy.eu"]}})
+CORS(app, supports_credentials=True, resources={r"/*": {"origins": ["https://www.talfy.eu"]}})
 
 # DATABASE CONFIG
 app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://talfy_db_user:1POTty3Z6HosHBD8TDtzh2hWqcVFdRAq@dpg-d1gdskqli9vc73ahklag-a.frankfurt-postgres.render.com/talfy_db"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.secret_key = "supersecretkey"
 
 db = SQLAlchemy(app)
 
@@ -71,13 +72,33 @@ def register():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/login", methods=["POST"])
+def login():
+    try:
+        data = request.get_json()
+        email = data.get("email")
+        password = data.get("password")
+
+        if not email or not password:
+            return jsonify({"error": "Missing email or password"}), 400
+
+        user = User.query.filter_by(email=email, password=password).first()
+        if not user:
+            return jsonify({"error": "Invalid credentials"}), 401
+
+        return jsonify({
+            "message": "Login successful",
+            "user_id": user.id,
+            "user_type": user.user_type
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": f"Login failed: {str(e)}"}), 500
+
 @app.route("/api/counts", methods=["GET"])
 def get_counts():
     try:
-        # Conta solo i candidati che hanno completato il profilo
         candidate_count = db.session.query(CandidateProfile).count()
-
-        # Conta solo le aziende che hanno completato il profilo
         company_count = db.session.query(CompanyProfile).count()
 
         return jsonify({
@@ -202,6 +223,7 @@ def init_db():
         return "✅ Database initialized successfully", 200
     except Exception as e:
         return f"❌ Error initializing DB: {e}", 500
+
 @app.route("/admin-data")
 def admin_data():
     try:
@@ -245,28 +267,6 @@ def admin_data():
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-@app.route("/login", methods=["POST"])
-def login():
-    try:
-        data = request.get_json()
-        email = data.get("email")
-        password = data.get("password")
-
-        if not email or not password:
-            return jsonify({"error": "Missing email or password"}), 400
-
-        user = User.query.filter_by(email=email, password=password).first()
-        if not user:
-            return jsonify({"error": "Invalid credentials"}), 401
-
-        return jsonify({
-            "user_id": user.id,
-            "user_type": user.user_type
-        }), 200
-
-    except Exception as e:
-        print("❌ LOGIN ERROR:", e)
-        return jsonify({"error": "Server error"}), 500
 
 # MAIN
 if __name__ == "__main__":
