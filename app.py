@@ -216,6 +216,27 @@ def get_companies():
     except Exception as e:
         return jsonify({"error": f"Error loading companies: {str(e)}"}), 500
 
+@app.route("/api/candidate/<int:user_id>", methods=["GET"])
+def get_candidate(user_id):
+    try:
+        profile = CandidateProfile.query.filter_by(user_id=user_id).first()
+        if not profile:
+            return jsonify({"error": "Candidate not found"}), 404
+
+        return jsonify({
+            "id": profile.id,
+            "user_id": profile.user_id,
+            "display_name": profile.display_name,
+            "current_job": profile.current_job,
+            "experience_years": profile.experience_years,
+            "salary_range": profile.salary_range,
+            "sector": profile.sector,
+            "tools": profile.tools,
+            "avatar": profile.avatar
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/init-db")
 def init_db():
     try:
