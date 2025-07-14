@@ -169,7 +169,7 @@ def get_candidate(user_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route("/save-candidate-profile", methods=["POST"])
+@app.route("/api/save-candidate-profile", methods=["POST"])
 def save_candidate_profile():
     try:
         data = request.get_json()
