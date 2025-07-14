@@ -182,6 +182,17 @@ def save_candidate_profile():
         tools = data.get("tools")
         avatar = data.get("avatar")
 
+        # Aggiungiamo i campi mancanti
+        first_name = data.get("first_name")
+        last_name = data.get("last_name")
+        native_language = data.get("native_language")
+        other_languages = data.get("other_languages")
+        job_title = data.get("job_title")
+        education_area = data.get("education_area")
+        birth_day = data.get("birth_day")
+        birth_month = data.get("birth_month")
+        birth_year = data.get("birth_year")
+
         if not user_id or not display_name:
             return jsonify({"error": "Missing user_id or display_name"}), 400
 
@@ -197,14 +208,25 @@ def save_candidate_profile():
             salary_range=salary_range,
             sector=sector,
             tools=tools,
-            avatar=avatar
+            avatar=avatar,
+            first_name=first_name,
+            last_name=last_name,
+            native_language=native_language,
+            other_languages=",".join(other_languages) if other_languages else None,
+            job_title=",".join(job_title) if job_title else None,
+            education_area=",".join(education_area) if education_area else None,
+            birth_day=birth_day,
+            birth_month=birth_month,
+            birth_year=birth_year
         )
+
         db.session.add(profile)
         db.session.commit()
 
         return jsonify({"message": "Candidate profile saved"}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 @app.route("/save-company-profile", methods=["POST"])
 def save_company_profile():
