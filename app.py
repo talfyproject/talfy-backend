@@ -82,7 +82,41 @@ def register():
         return jsonify({"message": "Registration successful", "user_id": new_user.id}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+@app.route("/api/update-candidate/<int:user_id>", methods=["POST"])
+def update_candidate(user_id):
+    try:
+        data = request.get_json()
+        profile = CandidateProfile.query.filter_by(user_id=user_id).first()
 
+        if not profile:
+            profile = CandidateProfile(user_id=user_id)
+
+        profile.first_name = data.get("first_name")
+        profile.last_name = data.get("last_name")
+        profile.display_name = data.get("display_name")
+        profile.current_job = data.get("current_job")
+        profile.experience_years = data.get("experience_years")
+        profile.salary_range = data.get("salary_range")
+        profile.native_language = data.get("native_language")
+        profile.birth_day = data.get("birth_day")
+        profile.birth_month = data.get("birth_month")
+        profile.birth_year = data.get("birth_year")
+        profile.avatar = data.get("avatar")
+
+        # Join array fields with comma
+        profile.sector = ",".join(data.get("sector", []))
+        profile.tools = ",".join(data.get("tools", []))
+        profile.other_languages = ",".join(data.get("other_languages", []))
+        profile.job_title = ",".join(data.get("job_title", []))
+        profile.education_area = ",".join(data.get("education_area", []))
+
+        db.session.add(profile)
+        db.session.commit()
+
+        return jsonify({"message": "Profile updated successfully"}), 200
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to update profile: {str(e)}"}), 500
 @app.route("/api/login", methods=["POST"])
 def login():
     try:
