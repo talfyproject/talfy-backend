@@ -30,9 +30,20 @@ class CandidateProfile(db.Model):
     current_job = db.Column(db.String(100))
     experience_years = db.Column(db.Integer)
     salary_range = db.Column(db.String(50))
-    sector = db.Column(db.String(100))
-    tools = db.Column(db.String(255))
+    sector = db.Column(db.String(255))  # multiple values separated by comma
+    tools = db.Column(db.String(255))   # multiple values separated by comma
     avatar = db.Column(db.String(255))
+
+    # New fields
+    first_name = db.Column(db.String(100))
+    last_name = db.Column(db.String(100))
+    native_language = db.Column(db.String(100))
+    other_languages = db.Column(db.String(255))  # comma-separated list
+    job_title = db.Column(db.String(255))        # comma-separated list
+    education_area = db.Column(db.String(255))   # comma-separated list
+    birth_day = db.Column(db.Integer)
+    birth_month = db.Column(db.Integer)
+    birth_year = db.Column(db.Integer)
 
 class CompanyProfile(db.Model):
     __tablename__ = 'company_profile'
