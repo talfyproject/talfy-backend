@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True, resources={r"/*": {"origins": ["https://www.talfy.eu"]}})
@@ -30,17 +31,17 @@ class CandidateProfile(db.Model):
     current_job = db.Column(db.String(100))
     experience_years = db.Column(db.Integer)
     salary_range = db.Column(db.String(50))
-    sector = db.Column(db.String(255))  # multiple values separated by comma
-    tools = db.Column(db.String(255))   # multiple values separated by comma
+    sector = db.Column(db.String(255))
+    tools = db.Column(db.String(255))
     avatar = db.Column(db.String(255))
 
-    # New fields
+    # Extended fields
     first_name = db.Column(db.String(100))
     last_name = db.Column(db.String(100))
     native_language = db.Column(db.String(100))
-    other_languages = db.Column(db.String(255))  # comma-separated list
-    job_title = db.Column(db.String(255))        # comma-separated list
-    education_area = db.Column(db.String(255))   # comma-separated list
+    other_languages = db.Column(db.String(255))
+    job_title = db.Column(db.String(255))
+    education_area = db.Column(db.String(255))
     birth_day = db.Column(db.Integer)
     birth_month = db.Column(db.Integer)
     birth_year = db.Column(db.Integer)
@@ -75,48 +76,15 @@ def register():
         if User.query.filter_by(email=email).first():
             return jsonify({"error": "Email already exists"}), 409
 
-        new_user = User(email=email, password=password, user_type=user_type)
+        hashed_pw = generate_password_hash(password)
+        new_user = User(email=email, password=hashed_pw, user_type=user_type)
         db.session.add(new_user)
         db.session.commit()
 
         return jsonify({"message": "Registration successful", "user_id": new_user.id}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-@app.route("/api/update-candidate/<int:user_id>", methods=["POST"])
-def update_candidate(user_id):
-    try:
-        data = request.get_json()
-        profile = CandidateProfile.query.filter_by(user_id=user_id).first()
 
-        if not profile:
-            profile = CandidateProfile(user_id=user_id)
-
-        profile.first_name = data.get("first_name")
-        profile.last_name = data.get("last_name")
-        profile.display_name = data.get("display_name")
-        profile.current_job = data.get("current_job")
-        profile.experience_years = data.get("experience_years")
-        profile.salary_range = data.get("salary_range")
-        profile.native_language = data.get("native_language")
-        profile.birth_day = data.get("birth_day")
-        profile.birth_month = data.get("birth_month")
-        profile.birth_year = data.get("birth_year")
-        profile.avatar = data.get("avatar")
-
-        # Join array fields with comma
-        profile.sector = ",".join(data.get("sector", []))
-        profile.tools = ",".join(data.get("tools", []))
-        profile.other_languages = ",".join(data.get("other_languages", []))
-        profile.job_title = ",".join(data.get("job_title", []))
-        profile.education_area = ",".join(data.get("education_area", []))
-
-        db.session.add(profile)
-        db.session.commit()
-
-        return jsonify({"message": "Profile updated successfully"}), 200
-
-    except Exception as e:
-        return jsonify({"error": f"Failed to update profile: {str(e)}"}), 500
 @app.route("/api/login", methods=["POST"])
 def login():
     try:
@@ -127,8 +95,8 @@ def login():
         if not email or not password:
             return jsonify({"error": "Missing email or password"}), 400
 
-        user = User.query.filter_by(email=email, password=password).first()
-        if not user:
+        user = User.query.filter_by(email=email).first()
+        if not user or not check_password_hash(user.password, password):
             return jsonify({"error": "Invalid credentials"}), 401
 
         return jsonify({
@@ -136,20 +104,73 @@ def login():
             "user_id": user.id,
             "user_type": user.user_type
         }), 200
-
     except Exception as e:
         return jsonify({"error": f"Login failed: {str(e)}"}), 500
 
-@app.route("/api/counts", methods=["GET"])
-def get_counts():
+@app.route("/api/update-candidate/<int:user_id>", methods=["POST"])
+def update_candidate(user_id):
     try:
-        candidate_count = db.session.query(CandidateProfile).count()
-        company_count = db.session.query(CompanyProfile).count()
+        data = request.get_json()
+        profile = CandidateProfile.query.filter_by(user_id=user_id).first()
+
+        if not profile:
+            profile = CandidateProfile(user_id=user_id)
+
+        # Salvataggio campi singoli
+        profile.first_name = data.get("first_name")
+        profile.last_name = data.get("last_name")
+        if "display_name" in data:
+            profile.display_name = data["display_name"]
+        profile.current_job = data.get("current_job")
+        profile.experience_years = data.get("experience_years")
+        profile.salary_range = data.get("salary_range")
+        profile.native_language = data.get("native_language")
+        profile.birth_day = data.get("birth_day")
+        profile.birth_month = data.get("birth_month")
+        profile.birth_year = data.get("birth_year")
+        profile.avatar = data.get("avatar")
+
+        # Salvataggio array (comma-separated)
+        profile.sector = ",".join(data.get("sector", []))
+        profile.tools = ",".join(data.get("tools", []))
+        profile.other_languages = ",".join(data.get("other_languages", []))
+        profile.job_title = ",".join(data.get("job_title", []))
+        profile.education_area = ",".join(data.get("education_area", []))
+
+        db.session.add(profile)
+        db.session.commit()
+
+        return jsonify({"message": "Profile updated successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": f"Failed to update profile: {str(e)}"}), 500
+
+@app.route("/api/candidate/<int:user_id>", methods=["GET"])
+def get_candidate(user_id):
+    try:
+        profile = CandidateProfile.query.filter_by(user_id=user_id).first()
+        if not profile:
+            return jsonify({"error": "Candidate not found"}), 404
 
         return jsonify({
-            "candidates": candidate_count,
-            "companies": company_count
-        })
+            "id": profile.id,
+            "user_id": profile.user_id,
+            "display_name": profile.display_name,
+            "current_job": profile.current_job,
+            "experience_years": profile.experience_years,
+            "salary_range": profile.salary_range,
+            "sector": profile.sector,
+            "tools": profile.tools,
+            "avatar": profile.avatar,
+            "first_name": profile.first_name,
+            "last_name": profile.last_name,
+            "native_language": profile.native_language,
+            "other_languages": profile.other_languages,
+            "job_title": profile.job_title,
+            "education_area": profile.education_area,
+            "birth_day": profile.birth_day,
+            "birth_month": profile.birth_month,
+            "birth_year": profile.birth_year
+        }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -261,24 +282,15 @@ def get_companies():
     except Exception as e:
         return jsonify({"error": f"Error loading companies: {str(e)}"}), 500
 
-@app.route("/api/candidate/<int:user_id>", methods=["GET"])
-def get_candidate(user_id):
+@app.route("/api/counts", methods=["GET"])
+def get_counts():
     try:
-        profile = CandidateProfile.query.filter_by(user_id=user_id).first()
-        if not profile:
-            return jsonify({"error": "Candidate not found"}), 404
-
+        candidate_count = db.session.query(CandidateProfile).count()
+        company_count = db.session.query(CompanyProfile).count()
         return jsonify({
-            "id": profile.id,
-            "user_id": profile.user_id,
-            "display_name": profile.display_name,
-            "current_job": profile.current_job,
-            "experience_years": profile.experience_years,
-            "salary_range": profile.salary_range,
-            "sector": profile.sector,
-            "tools": profile.tools,
-            "avatar": profile.avatar
-        }), 200
+            "candidates": candidate_count,
+            "companies": company_count
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -297,34 +309,9 @@ def admin_data():
         candidates = CandidateProfile.query.all()
         companies = CompanyProfile.query.all()
 
-        users_data = []
-        for u in users:
-            users_data.append({
-                "id": u.id,
-                "email": u.email,
-                "user_type": u.user_type
-            })
-
-        candidate_data = []
-        for c in candidates:
-            candidate_data.append({
-                "id": c.id,
-                "display_name": c.display_name,
-                "current_job": c.current_job,
-                "experience_years": c.experience_years,
-                "sector": c.sector,
-                "tools": c.tools
-            })
-
-        company_data = []
-        for c in companies:
-            company_data.append({
-                "id": c.id,
-                "company_name": c.company_name,
-                "sector": c.sector,
-                "num_employees": c.num_employees,
-                "headquarters": c.headquarters
-            })
+        users_data = [{"id": u.id, "email": u.email, "user_type": u.user_type} for u in users]
+        candidate_data = [{"id": c.id, "display_name": c.display_name, "current_job": c.current_job, "experience_years": c.experience_years, "sector": c.sector, "tools": c.tools} for c in candidates]
+        company_data = [{"id": c.id, "company_name": c.company_name, "sector": c.sector, "num_employees": c.num_employees, "headquarters": c.headquarters} for c in companies]
 
         return jsonify({
             "users": users_data,
