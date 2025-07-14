@@ -242,7 +242,7 @@ def save_company_profile():
 @app.route("/api/candidates", methods=["GET"])
 def get_candidates():
     try:
-        candidates = CandidateProfile.query.all()
+        candidates = CandidateProfile.query.filter(CandidateProfile.display_name.isnot(None)).all()
         result = []
         for c in candidates:
             result.append({
@@ -313,7 +313,7 @@ def init_db():
 def admin_data():
     try:
         users = User.query.all()
-        candidates = CandidateProfile.query.all()
+        candidates = CandidateProfile.query.filter(CandidateProfile.display_name.isnot(None)).all()
         companies = CompanyProfile.query.all()
 
         users_data = [{"id": u.id, "email": u.email, "user_type": u.user_type} for u in users]
