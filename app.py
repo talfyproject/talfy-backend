@@ -182,13 +182,13 @@ def save_candidate_profile():
         tools = data.get("tools")
         avatar = data.get("avatar")
 
-        # Aggiungiamo i campi mancanti
+        # Nuovi campi
         first_name = data.get("first_name")
         last_name = data.get("last_name")
         native_language = data.get("native_language")
-        other_languages = data.get("other_languages")
-        job_title = data.get("job_title")
-        education_area = data.get("education_area")
+        other_languages = ",".join(data.get("other_languages", []))
+        job_title = ",".join(data.get("job_title", []))
+        education_area = ",".join(data.get("education_area", []))
         birth_day = data.get("birth_day")
         birth_month = data.get("birth_month")
         birth_year = data.get("birth_year")
@@ -212,14 +212,13 @@ def save_candidate_profile():
             first_name=first_name,
             last_name=last_name,
             native_language=native_language,
-            other_languages=",".join(other_languages) if other_languages else None,
-            job_title=",".join(job_title) if job_title else None,
-            education_area=",".join(education_area) if education_area else None,
+            other_languages=other_languages,
+            job_title=job_title,
+            education_area=education_area,
             birth_day=birth_day,
             birth_month=birth_month,
             birth_year=birth_year
         )
-
         db.session.add(profile)
         db.session.commit()
 
