@@ -6,7 +6,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 CORS(app, supports_credentials=True, resources={r"/*": {"origins": ["https://www.talfy.eu"]}})
 
-# DATABASE CONFIG
 app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://talfy_db_user:1POTty3Z6HosHBD8TDtzh2hWqcVFdRAq@dpg-d1gdskqli9vc73ahklag-a.frankfurt-postgres.render.com/talfy_db"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = "supersecretkey"
@@ -20,7 +19,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(255), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
-    user_type = db.Column(db.String(50), nullable=False)  # 'candidate' or 'company'
+    user_type = db.Column(db.String(50), nullable=False)
 
 class CandidateProfile(db.Model):
     __tablename__ = 'candidate_profile'
@@ -34,8 +33,6 @@ class CandidateProfile(db.Model):
     sector = db.Column(db.String(255))
     tools = db.Column(db.String(255))
     avatar = db.Column(db.String(255))
-
-    # Extended fields
     first_name = db.Column(db.String(100))
     last_name = db.Column(db.String(100))
     native_language = db.Column(db.String(100))
@@ -116,7 +113,6 @@ def update_candidate(user_id):
         if not profile:
             profile = CandidateProfile(user_id=user_id)
 
-        # Salvataggio campi singoli
         profile.first_name = data.get("first_name")
         profile.last_name = data.get("last_name")
         if "display_name" in data:
@@ -130,7 +126,6 @@ def update_candidate(user_id):
         profile.birth_year = data.get("birth_year")
         profile.avatar = data.get("avatar")
 
-        # Salvataggio array (comma-separated)
         profile.sector = ",".join(data.get("sector", []))
         profile.tools = ",".join(data.get("tools", []))
         profile.other_languages = ",".join(data.get("other_languages", []))
@@ -291,6 +286,18 @@ def get_counts():
             "candidates": candidate_count,
             "companies": company_count
         })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/check-email", methods=["GET"])
+def check_email():
+    try:
+        email = request.args.get("email")
+        if not email:
+            return jsonify({"error": "Email is required"}), 400
+
+        user = User.query.filter_by(email=email).first()
+        return jsonify({"exists": bool(user)}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
