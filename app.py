@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -143,6 +143,24 @@ def candidate_profile(user_id):
         print("Errore caricamento candidato:", e)
         return "Database error."
     return render_template("candidate.html", user=user)
+
+# API per contatore
+@app.route("/api/candidates")
+def api_candidates():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) AS total FROM candidates;")
+        total = cur.fetchone()['total']
+        cur.close()
+        conn.close()
+        return jsonify({"candidates": [], "total": total, "message": f"{total} candidati registrati"})
+    except Exception as e:
+        return jsonify({"candidates": [], "total": 0, "message": "Errore database"})
+
+@app.route("/api/status")
+def api_status():
+    return jsonify({"message": "Talfy Backend API is running!", "status": "ok"})
 
 # Logout
 @app.route("/logout")
