@@ -197,7 +197,18 @@ def get_votes():
             'votes': 0,
             'message': f'Errore: {str(e)}'
         })
-
+@app.route('/reset-db')
+def reset_db():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM votes')
+        cursor.execute('DELETE FROM candidates')
+        conn.commit()
+        conn.close()
+        return "✅ Database azzerato!"
+    except Exception as e:
+        return f"❌ Errore: {str(e)}"
 @app.route('/api/results')
 def get_results():
     try:
