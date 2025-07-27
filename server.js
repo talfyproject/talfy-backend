@@ -1,5 +1,4 @@
 // server.js - Backend Talfy con Node.js + Express + PostgreSQL
-
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -32,7 +31,7 @@ pool.connect()
   .then(() => console.log('✅ Connesso al database PostgreSQL'))
   .catch(err => console.error('❌ Errore connessione DB:', err));
 
-// API: Registrazione utente
+// ✅ API: Registrazione utente
 app.post('/api/auth/register', async (req, res) => {
   const { email, password, accountType, company } = req.body;
 
@@ -56,7 +55,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// API: Login utente
+// ✅ API: Login utente
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -75,7 +74,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// API: Contatori
+// ✅ API: Contatori
 app.get('/api/stats', async (req, res) => {
   try {
     const candidatesCount = await pool.query("SELECT COUNT(*) FROM users WHERE account_type = 'candidate'");
@@ -89,4 +88,3 @@ app.get('/api/stats', async (req, res) => {
 // Avvio server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server avviato su http://localhost:${PORT}`));
-
