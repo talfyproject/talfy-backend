@@ -1,108 +1,117 @@
-// server.js
-const express = require('express');
-const cors = require('cors');
-const bodyParser = require('body-parser');
-const { Pool } = require('pg');
+// Import dependencies
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import pkg from "pg";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+
+dotenv.config();
+const { Pool } = pkg;
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ✅ Connessione al database PostgreSQL (Render)
+// Middlewares
+app.use(cors());
+app.use(express.json());
+app.use(express.static("public")); // Cartella per i tuoi file statici Talfy
+
+// Database connection
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://talfy_db_user:1POTty3Z6HosHBD8TDtzh2hWqcVFdRAq@dpg-d1gdskqli9vc73ahklag-a.frankfurt-postgres.render.com/talfy_db',
+  connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-// Middleware
-app.use(cors());
-app.use(bodyParser.json());
-
-// ✅ Test DB
+// Test DB connection
 pool.connect()
-  .then(() => console.log('✅ Connected to PostgreSQL'))
-  .catch(err => console.error('❌ DB Connection Error:', err));
+  .then(() => console.log("✅ Connected to PostgreSQL"))
+  .catch((err) => console.error("❌ Database connection error:", err));
 
-// ✅ Rotta di test
-app.get('/', (req, res) => {
-  res.json({ message: 'Talfy Backend with PostgreSQL is running!' });
-});
+// JWT Secret
+const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
 
-// ✅ Registrazione utente
-app.post('/api/register', async (req, res) => {
-  const { email, password, userType } = req.body;
+// ✅ ROUTES
 
-  if (!email || !password || !userType) {
-    return res.status(400).json({ message: 'Missing fields' });
+// --- 1. Registration ---
+app.post("/api/register", async (req, res) => {
+  const { email, password, user_type } = req.body;
+
+  if (!email || !password || !user_type) {
+    return res.status(400).json({ error: "Missing required fields" });
   }
 
   try {
+    // Check if email already exists
+    const existingUser = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ error: "Email already registered" });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Insert user
     const result = await pool.query(
-      'INSERT INTO users (email, password, user_type, profile_completed) VALUES ($1, $2, $3, $4) RETURNING id, email, user_type, profile_completed',
-      [email, password, userType, false]
+      "INSERT INTO users (email, password, user_type) VALUES ($1, $2, $3) RETURNING id",
+      [email, hashedPassword, user_type]
     );
 
-    res.json({ message: 'User registered successfully', user: result.rows[0] });
-  } catch (error) {
-    console.error('Error inserting user:', error);
-    res.status(500).json({ message: 'Database error' });
+    res.json({ message: "Registration successful", userId: result.rows[0].id });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error during registration" });
   }
 });
 
-// ✅ Login
-app.post('/api/login', async (req, res) => {
+// --- 2. Login ---
+app.post("/api/login", async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const result = await pool.query(
-      'SELECT id, email, user_type, profile_completed FROM users WHERE email=$1 AND password=$2',
-      [email, password]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+    const userResult = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+    if (userResult.rows.length === 0) {
+      return res.status(400).json({ error: "Invalid email or password" });
     }
 
-    res.json({ message: 'Login successful', user: result.rows[0] });
-  } catch (error) {
-    console.error('Error during login:', error);
-    res.status(500).json({ message: 'Database error' });
+    const user = userResult.rows[0];
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid) {
+      return res.status(400).json({ error: "Invalid email or password" });
+    }
+
+    // Generate JWT
+    const token = jwt.sign({ id: user.id, email: user.email, user_type: user.user_type }, JWT_SECRET, { expiresIn: "2h" });
+
+    res.json({ message: "Login successful", token, userId: user.id, userType: user.user_type });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error during login" });
   }
 });
 
-// ✅ Completa profilo
-app.post('/api/complete-profile', async (req, res) => {
+// --- 3. Update Profile ---
+app.post("/api/update-profile", async (req, res) => {
   const { userId, profileData } = req.body;
+
+  if (!userId || !profileData) {
+    return res.status(400).json({ error: "Missing required data" });
+  }
 
   try {
     await pool.query(
-      'UPDATE users SET profile_completed=$1, profile_data=$2 WHERE id=$3',
-      [true, JSON.stringify(profileData), userId]
+      "UPDATE users SET profile = $1 WHERE id = $2",
+      [profileData, userId]
     );
 
-    res.json({ message: 'Profile completed' });
-  } catch (error) {
-    console.error('Error updating profile:', error);
-    res.status(500).json({ message: 'Database error' });
+    res.json({ message: "Profile updated successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error updating profile" });
   }
 });
 
-// ✅ Contatori
-app.get('/api/counters', async (req, res) => {
+// --- 4. Get Counters ---
+app.get("/api/counters", async (req, res) => {
   try {
-    const candidatesResult = await pool.query("SELECT COUNT(*) FROM users WHERE user_type='candidate'");
-    const companiesResult = await pool.query("SELECT COUNT(*) FROM users WHERE user_type='company'");
-
-    res.json({
-      candidates: parseInt(candidatesResult.rows[0].count),
-      companies: parseInt(companiesResult.rows[0].count)
-    });
-  } catch (error) {
-    console.error('Error fetching counters:', error);
-    res.status(500).json({ message: 'Database error' });
-  }
-});
-
-// ✅ Avvio server
-app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-});
+    const candid
