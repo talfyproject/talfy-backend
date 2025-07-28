@@ -1,4 +1,3 @@
-// Import dependencies
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -15,9 +14,8 @@ const PORT = process.env.PORT || 5000;
 // Middlewares
 app.use(cors());
 app.use(express.json());
-app.use(express.static("public")); // Cartella per i tuoi file statici Talfy
 
-// Database connection
+// ✅ Database connection
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
@@ -114,4 +112,17 @@ app.post("/api/update-profile", async (req, res) => {
 // --- 4. Get Counters ---
 app.get("/api/counters", async (req, res) => {
   try {
-    const candid
+    const candidates = await pool.query("SELECT COUNT(*) FROM users WHERE user_type = 'candidate'");
+    const companies = await pool.query("SELECT COUNT(*) FROM users WHERE user_type = 'company'");
+
+    res.json({
+      candidates: parseInt(candidates.rows[0].count),
+      companies: parseInt(companies.rows[0].count)
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error fetching counters" });
+  }
+});
+
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
