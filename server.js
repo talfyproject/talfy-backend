@@ -2,85 +2,107 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const { Pool } = require('pg');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// ✅ Connessione al database PostgreSQL (Render)
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || 'postgresql://talfy_db_user:1POTty3Z6HosHBD8TDtzh2hWqcVFdRAq@dpg-d1gdskqli9vc73ahklag-a.frankfurt-postgres.render.com/talfy_db',
+  ssl: { rejectUnauthorized: false }
+});
 
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
 
-// ✅ Mock Database in memoria
-let candidates = [];
-let companies = [];
+// ✅ Test DB
+pool.connect()
+  .then(() => console.log('✅ Connected to PostgreSQL'))
+  .catch(err => console.error('❌ DB Connection Error:', err));
 
 // ✅ Rotta di test
 app.get('/', (req, res) => {
-  res.json({ message: 'Talfy Backend Mock is running!' });
+  res.json({ message: 'Talfy Backend with PostgreSQL is running!' });
 });
 
 // ✅ Registrazione utente
-app.post('/api/register', (req, res) => {
+app.post('/api/register', async (req, res) => {
   const { email, password, userType } = req.body;
 
   if (!email || !password || !userType) {
     return res.status(400).json({ message: 'Missing fields' });
   }
 
-  const newUser = {
-    id: Date.now(),
-    email,
-    password,
-    userType,
-    profileCompleted: false
-  };
+  try {
+    const result = await pool.query(
+      'INSERT INTO users (email, password, user_type, profile_completed) VALUES ($1, $2, $3, $4) RETURNING id, email, user_type, profile_completed',
+      [email, password, userType, false]
+    );
 
-  if (userType === 'candidate') {
-    candidates.push(newUser);
-  } else if (userType === 'company') {
-    companies.push(newUser);
+    res.json({ message: 'User registered successfully', user: result.rows[0] });
+  } catch (error) {
+    console.error('Error inserting user:', error);
+    res.status(500).json({ message: 'Database error' });
   }
-
-  res.json({ message: 'User registered successfully', user: newUser });
 });
 
 // ✅ Login
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
 
-  const user = [...candidates, ...companies].find(u => u.email === email && u.password === password);
+  try {
+    const result = await pool.query(
+      'SELECT id, email, user_type, profile_completed FROM users WHERE email=$1 AND password=$2',
+      [email, password]
+    );
 
-  if (!user) {
-    return res.status(401).json({ message: 'Invalid credentials' });
+    if (result.rows.length === 0) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    res.json({ message: 'Login successful', user: result.rows[0] });
+  } catch (error) {
+    console.error('Error during login:', error);
+    res.status(500).json({ message: 'Database error' });
   }
-
-  res.json({ message: 'Login successful', user });
 });
 
-// ✅ Completa profilo (mock)
-app.post('/api/complete-profile', (req, res) => {
+// ✅ Completa profilo
+app.post('/api/complete-profile', async (req, res) => {
   const { userId, profileData } = req.body;
 
-  let user = candidates.find(c => c.id === userId) || companies.find(c => c.id === userId);
-  if (!user) {
-    return res.status(404).json({ message: 'User not found' });
+  try {
+    await pool.query(
+      'UPDATE users SET profile_completed=$1, profile_data=$2 WHERE id=$3',
+      [true, JSON.stringify(profileData), userId]
+    );
+
+    res.json({ message: 'Profile completed' });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ message: 'Database error' });
   }
-
-  user.profileCompleted = true;
-  user.profileData = profileData;
-
-  res.json({ message: 'Profile completed', user });
 });
 
 // ✅ Contatori
-app.get('/api/counters', (req, res) => {
-  res.json({
-    candidates: candidates.length,
-    companies: companies.length
-  });
+app.get('/api/counters', async (req, res) => {
+  try {
+    const candidatesResult = await pool.query("SELECT COUNT(*) FROM users WHERE user_type='candidate'");
+    const companiesResult = await pool.query("SELECT COUNT(*) FROM users WHERE user_type='company'");
+
+    res.json({
+      candidates: parseInt(candidatesResult.rows[0].count),
+      companies: parseInt(companiesResult.rows[0].count)
+    });
+  } catch (error) {
+    console.error('Error fetching counters:', error);
+    res.status(500).json({ message: 'Database error' });
+  }
 });
 
-// Avvio server
+// ✅ Avvio server
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
