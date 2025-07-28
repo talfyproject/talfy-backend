@@ -12,9 +12,13 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middlewares
-app.use(cors());
+app.use(cors({
+  origin: "*", // Puoi restringere al tuo dominio frontend
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
 app.use(express.json());
-app.use(express.static("public")); // ✅ Serve HTML/CSS/JS files from "public" folder
+app.use(express.static("public"));
 
 // ✅ Database connection
 const pool = new Pool({
@@ -22,15 +26,18 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// Test DB connection
 pool.connect()
   .then(() => console.log("✅ Connected to PostgreSQL"))
   .catch((err) => console.error("❌ Database connection error:", err));
 
-// JWT Secret
 const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
 
-// ✅ Middleware for JWT auth
+// ✅ Test Route
+app.get("/", (req, res) => {
+  res.send("✅ Talfy Backend is running");
+});
+
+// ✅ JWT Middleware
 const authMiddleware = (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ error: "Unauthorized" });
@@ -45,35 +52,30 @@ const authMiddleware = (req, res, next) => {
 
 // ✅ ROUTES
 
-// --- 1. Registration ---
+// --- 1. Register ---
 app.post("/api/register", async (req, res) => {
   const { email, password, user_type, userType } = req.body;
-  const type = user_type || userType; // ✅ Accept both
+  const type = user_type || userType;
 
   if (!email || !password || !type) {
     return res.status(400).json({ error: "Missing required fields" });
   }
 
   try {
-    // Check if email already exists
     const existingUser = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
     if (existingUser.rows.length > 0) {
       return res.status(400).json({ error: "Email already registered" });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Insert user
     const result = await pool.query(
       "INSERT INTO users (email, password, user_type) VALUES ($1, $2, $3) RETURNING id",
       [email, hashedPassword, type]
     );
 
-    // ✅ Response aligned with register.js
     res.json({ success: true, userType: type, userId: result.rows[0].id });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Registration error:", err);
     res.status(500).json({ error: "Server error during registration" });
   }
 });
@@ -94,12 +96,11 @@ app.post("/api/login", async (req, res) => {
       return res.status(400).json({ error: "Invalid email or password" });
     }
 
-    // Generate JWT
     const token = jwt.sign({ id: user.id, email: user.email, user_type: user.user_type }, JWT_SECRET, { expiresIn: "2h" });
 
     res.json({ success: true, message: "Login successful", token, userId: user.id, userType: user.user_type });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Login error:", err);
     res.status(500).json({ error: "Server error during login" });
   }
 });
@@ -107,26 +108,22 @@ app.post("/api/login", async (req, res) => {
 // --- 3. Update Profile ---
 app.post("/api/update-profile", authMiddleware, async (req, res) => {
   const { profileData } = req.body;
-  const userId = req.user.id; // ✅ From JWT token
+  const userId = req.user.id;
 
   if (!profileData) {
     return res.status(400).json({ error: "Missing required data" });
   }
 
   try {
-    await pool.query(
-      "UPDATE users SET profile = $1 WHERE id = $2",
-      [profileData, userId]
-    );
-
+    await pool.query("UPDATE users SET profile = $1 WHERE id = $2", [profileData, userId]);
     res.json({ success: true, message: "Profile updated successfully" });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Profile update error:", err);
     res.status(500).json({ error: "Error updating profile" });
   }
 });
 
-// --- 4. Get Counters ---
+// --- 4. Counters ---
 app.get("/api/counters", async (req, res) => {
   try {
     const candidates = await pool.query("SELECT COUNT(*) FROM users WHERE user_type = 'candidate'");
@@ -137,7 +134,7 @@ app.get("/api/counters", async (req, res) => {
       companies: parseInt(companies.rows[0].count, 10)
     });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Counters error:", err);
     res.status(500).json({ error: "Error fetching counters" });
   }
 });
