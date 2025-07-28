@@ -14,6 +14,7 @@ const PORT = process.env.PORT || 5000;
 // Middlewares
 app.use(cors());
 app.use(express.json());
+app.use(express.static("public")); // ✅ Serve HTML/CSS/JS files from "public" folder
 
 // ✅ Database connection
 const pool = new Pool({
@@ -29,13 +30,27 @@ pool.connect()
 // JWT Secret
 const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
 
+// ✅ Middleware for JWT auth
+const authMiddleware = (req, res, next) => {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch {
+    return res.status(401).json({ error: "Invalid token" });
+  }
+};
+
 // ✅ ROUTES
 
 // --- 1. Registration ---
 app.post("/api/register", async (req, res) => {
-  const { email, password, user_type } = req.body;
+  const { email, password, user_type, userType } = req.body;
+  const type = user_type || userType; // ✅ Accept both
 
-  if (!email || !password || !user_type) {
+  if (!email || !password || !type) {
     return res.status(400).json({ error: "Missing required fields" });
   }
 
@@ -52,10 +67,11 @@ app.post("/api/register", async (req, res) => {
     // Insert user
     const result = await pool.query(
       "INSERT INTO users (email, password, user_type) VALUES ($1, $2, $3) RETURNING id",
-      [email, hashedPassword, user_type]
+      [email, hashedPassword, type]
     );
 
-    res.json({ message: "Registration successful", userId: result.rows[0].id });
+    // ✅ Response aligned with register.js
+    res.json({ success: true, userType: type, userId: result.rows[0].id });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error during registration" });
@@ -81,7 +97,7 @@ app.post("/api/login", async (req, res) => {
     // Generate JWT
     const token = jwt.sign({ id: user.id, email: user.email, user_type: user.user_type }, JWT_SECRET, { expiresIn: "2h" });
 
-    res.json({ message: "Login successful", token, userId: user.id, userType: user.user_type });
+    res.json({ success: true, message: "Login successful", token, userId: user.id, userType: user.user_type });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error during login" });
@@ -89,10 +105,11 @@ app.post("/api/login", async (req, res) => {
 });
 
 // --- 3. Update Profile ---
-app.post("/api/update-profile", async (req, res) => {
-  const { userId, profileData } = req.body;
+app.post("/api/update-profile", authMiddleware, async (req, res) => {
+  const { profileData } = req.body;
+  const userId = req.user.id; // ✅ From JWT token
 
-  if (!userId || !profileData) {
+  if (!profileData) {
     return res.status(400).json({ error: "Missing required data" });
   }
 
@@ -102,7 +119,7 @@ app.post("/api/update-profile", async (req, res) => {
       [profileData, userId]
     );
 
-    res.json({ message: "Profile updated successfully" });
+    res.json({ success: true, message: "Profile updated successfully" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Error updating profile" });
