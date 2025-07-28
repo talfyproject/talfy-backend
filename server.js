@@ -116,8 +116,8 @@ app.get("/api/counters", async (req, res) => {
     const companies = await pool.query("SELECT COUNT(*) FROM users WHERE user_type = 'company'");
 
     res.json({
-      candidates: parseInt(candidates.rows[0].count),
-      companies: parseInt(companies.rows[0].count)
+      candidates: parseInt(candidates.rows[0].count, 10),
+      companies: parseInt(companies.rows[0].count, 10)
     });
   } catch (err) {
     console.error(err);
@@ -125,4 +125,5 @@ app.get("/api/counters", async (req, res) => {
   }
 });
 
+// ✅ Start server
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
