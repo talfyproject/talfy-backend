@@ -11,6 +11,7 @@ const { Pool } = pkg;
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// ✅ Middleware
 app.use(cors({
   origin: "*",
   methods: ["GET", "POST", "PUT", "DELETE"],
@@ -19,6 +20,7 @@ app.use(cors({
 app.use(express.json());
 app.use(express.static("public"));
 
+// ✅ Database Connection
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
@@ -29,11 +31,6 @@ pool.connect()
   .catch((err) => console.error("❌ Database connection error:", err));
 
 const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
-
-// ✅ Test Route
-app.get("/", (req, res) => {
-  res.json({ message: "✅ Talfy Backend is running" });
-});
 
 // ✅ Middleware JWT
 const authMiddleware = (req, res, next) => {
@@ -48,12 +45,14 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
+// ✅ Test Route
+app.get("/", (req, res) => res.json({ message: "✅ Talfy Backend is running" }));
+
 // ✅ REGISTER
 app.post("/api/register", async (req, res) => {
-  const { email, password, user_type, userType } = req.body;
-  const type = user_type || userType;
+  const { email, password, user_type } = req.body;
 
-  if (!email || !password || !type) {
+  if (!email || !password || !user_type) {
     return res.status(400).json({ success: false, error: "Missing required fields" });
   }
 
@@ -66,10 +65,10 @@ app.post("/api/register", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await pool.query(
       "INSERT INTO users (email, password, user_type) VALUES ($1, $2, $3) RETURNING id",
-      [email, hashedPassword, type]
+      [email, hashedPassword, user_type]
     );
 
-    return res.json({ success: true, userType: type, userId: result.rows[0].id });
+    return res.json({ success: true, userType: user_type, userId: result.rows[0].id });
   } catch (err) {
     console.error("❌ Registration error:", err);
     return res.status(500).json({ success: false, error: "Server error during registration" });
@@ -96,7 +95,11 @@ app.post("/api/login", async (req, res) => {
       return res.status(400).json({ success: false, error: "Invalid email or password" });
     }
 
-    const token = jwt.sign({ id: user.id, email: user.email, user_type: user.user_type }, JWT_SECRET, { expiresIn: "2h" });
+    const token = jwt.sign(
+      { id: user.id, email: user.email, user_type: user.user_type },
+      JWT_SECRET,
+      { expiresIn: "2h" }
+    );
 
     return res.json({ success: true, message: "Login successful", token, userId: user.id, userType: user.user_type });
   } catch (err) {
@@ -105,7 +108,7 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
-// ✅ UPDATE PROFILE
+// ✅ UPDATE PROFILE (Candidate or Company)
 app.post("/api/update-profile", authMiddleware, async (req, res) => {
   const { profileData } = req.body;
   const userId = req.user.id;
@@ -120,6 +123,19 @@ app.post("/api/update-profile", authMiddleware, async (req, res) => {
   } catch (err) {
     console.error("❌ Profile update error:", err);
     return res.status(500).json({ success: false, error: "Error updating profile" });
+  }
+});
+
+// ✅ GET USER PROFILE
+app.get("/api/user/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const userResult = await pool.query("SELECT id, email, user_type, profile FROM users WHERE id = $1", [id]);
+    if (userResult.rows.length === 0) return res.status(404).json({ success: false, error: "User not found" });
+    return res.json({ success: true, user: userResult.rows[0] });
+  } catch (err) {
+    console.error("❌ Get user error:", err);
+    return res.status(500).json({ success: false, error: "Error fetching user" });
   }
 });
 
