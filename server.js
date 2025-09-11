@@ -16,6 +16,7 @@ const PORT = process.env.PORT || 5000;
 
 app.use(cors({ origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"] }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // ✅ aggiunto per form-urlencoded
 app.use(express.static("public"));
 
 // ✅ Upload folder
@@ -111,6 +112,11 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
+/* =======================
+   🔻 BLOCCO DUPLICATO (DISABILITATO, SOLO COMMENTATO)
+   =======================
+
+// (DUPLICATO) import / setup
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -131,21 +137,21 @@ app.use(cors({ origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-
 app.use(express.json());
 app.use(express.static("public"));
 
-// ✅ Upload folder
+// Upload folder (duplicato)
 const uploadDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
 app.use("/uploads", express.static(uploadDir));
 
-// ✅ Multer config
+// Multer (duplicato)
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname)
 });
 const upload = multer({ storage });
 
-// ✅ PostgreSQL
+// PostgreSQL (duplicato)
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
@@ -157,7 +163,7 @@ pool.connect()
 
 const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
 
-// ✅ JWT Middleware
+// JWT Middleware (duplicato)
 const authMiddleware = (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ success: false, error: "Unauthorized" });
@@ -169,62 +175,23 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-// ✅ ROUTES
-
-// Test route
+// ROUTES (duplicato)
 app.get("/", (req, res) => res.json({ message: "✅ Talfy Backend is running" }));
 
-// REGISTER
+// REGISTER (duplicato)
 app.post("/api/register", async (req, res) => {
-  const { email, password, user_type } = req.body;
-  if (!email || !password || !user_type) {
-    return res.status(400).json({ success: false, error: "Missing required fields" });
-  }
-
-  try {
-    const existingUser = await pool.query("SELECT id FROM users WHERE email = $1", [email]);
-    if (existingUser.rows.length > 0) {
-      return res.status(400).json({ success: false, error: "Email already registered" });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const result = await pool.query(
-      "INSERT INTO users (email, password, user_type) VALUES ($1, $2, $3) RETURNING id",
-      [email, hashedPassword, user_type]
-    );
-
-    res.json({ success: true, userId: result.rows[0].id, userType: user_type });
-  } catch (err) {
-    console.error("❌ Registration error:", err);
-    res.status(500).json({ success: false, error: "Server error" });
-  }
+  // ...
 });
 
-// LOGIN
+// LOGIN (duplicato)
 app.post("/api/login", async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ success: false, error: "Email and password required" });
-  }
-
-  try {
-    const userResult = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
-    if (userResult.rows.length === 0) return res.status(400).json({ success: false, error: "Invalid credentials" });
-
-    const user = userResult.rows[0];
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) return res.status(400).json({ success: false, error: "Invalid credentials" });
-
-    const token = jwt.sign({ id: user.id, email: user.email, user_type: user.user_type }, JWT_SECRET, { expiresIn: "2h" });
-
-    res.json({ success: true, token, userId: user.id, userType: user.user_type });
-  } catch (err) {
-    console.error("❌ Login error:", err);
-    res.status(500).json({ success: false, error: "Server error" });
-  }
+  // ...
 });
+*/
 
-// ✅ COMPLETE PROFILE (with upload)
+/* =======================
+   ✅ COMPLETE PROFILE (with upload)
+   ======================= */
 app.post("/api/candidate-profile", authMiddleware, upload.fields([
   { name: "photo", maxCount: 1 },
   { name: "cv", maxCount: 1 }
@@ -260,17 +227,26 @@ app.post("/api/candidate-profile", authMiddleware, upload.fields([
       cv: req.files["cv"] ? `/uploads/${req.files["cv"][0].filename}` : null
     };
 
-    await pool.query(
-  "UPDATE users SET profile = $1::jsonb WHERE id = $2",
-  [JSON.stringify(profileData), userId]
-);
-const upd = await pool.query(
-  "UPDATE users SET profile = $1::jsonb WHERE id = $2 RETURNING id, profile",
-  [JSON.stringify(profileData), userId]
-);
-res.json({ success: true, message: "Profile saved", user: upd.rows[0] });
-    
-    res.json({ success: true, message: "Profile saved", profile: profileData });
+    // ❌ PRIMO UPDATE (DOPPIONE) — LO LASCIO MA COMMENTATO
+    // await pool.query(
+    //   "UPDATE users SET profile = $1::jsonb WHERE id = $2",
+    //   [JSON.stringify(profileData), userId]
+    // );
+
+    // ✅ UNICO UPDATE CON RETURNING
+    const upd = await pool.query(
+      "UPDATE users SET profile = $1::jsonb WHERE id = $2 RETURNING id, profile",
+      [JSON.stringify(profileData), userId]
+    );
+
+    if (upd.rowCount === 0) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    res.json({ success: true, message: "Profile saved", user: upd.rows[0] });
+
+    // ❌ SECONDA RISPOSTA (DUPLICATA) — LA LASCIO MA COMMENTATA
+    // res.json({ success: true, message: "Profile saved", profile: profileData });
   } catch (err) {
     console.error("❌ Profile error:", err);
     res.status(500).json({ success: false, error: "Error saving profile" });
@@ -304,7 +280,11 @@ app.get("/api/counters", async (req, res) => {
 // ✅ Start Server
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
 
-// ✅ GET USER PROFILE
+/* =======================
+   🔻 BLOCCHI FINALI DUPLICATI (DISABILITATI, SOLO COMMENTATI)
+   =======================
+
+// ✅ GET USER PROFILE (duplicato)
 app.get("/api/user/:id", async (req, res) => {
   try {
     const result = await pool.query("SELECT id, email, user_type, profile FROM users WHERE id = $1", [req.params.id]);
@@ -316,7 +296,7 @@ app.get("/api/user/:id", async (req, res) => {
   }
 });
 
-// ✅ COUNTERS
+// ✅ COUNTERS (duplicato)
 app.get("/api/counters", async (req, res) => {
   try {
     const candidates = await pool.query("SELECT COUNT(*) FROM users WHERE user_type = 'candidate'");
@@ -328,8 +308,10 @@ app.get("/api/counters", async (req, res) => {
   }
 });
 
-// ✅ Start Server
+// ✅ Start Server (duplicato)
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+*/
+
 
 
 
