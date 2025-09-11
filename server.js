@@ -122,7 +122,7 @@ app.post("/api/candidate-profile", authMiddleware, upload.fields([
 
     const profileData = {
       firstName: req.body.firstName,
-      lastName: req.body.lastName/*,
+      lastName: req.body.lastName,
       phone: req.body.phone,
       location: req.body.location,
       birthDate: `${req.body.birthDay}-${req.body.birthMonth}-${req.body.birthYear}`,
@@ -143,7 +143,7 @@ app.post("/api/candidate-profile", authMiddleware, upload.fields([
       sectors: JSON.parse(req.body.sectors || "[]"),
       software: JSON.parse(req.body.software || "[]"),
       photo: req.files["photo"] ? `/uploads/${req.files["photo"][0].filename}` : null,
-      cv: req.files["cv"] ? `/uploads/${req.files["cv"][0].filename}` : null*/
+      cv: req.files["cv"] ? `/uploads/${req.files["cv"][0].filename}` : null
     };
 
     await pool.query("UPDATE users SET profile = $1 WHERE id = $2", [JSON.stringify(profileData), userId]);
@@ -181,5 +181,6 @@ app.get("/api/counters", async (req, res) => {
 
 // ✅ Start Server
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+
 
 
