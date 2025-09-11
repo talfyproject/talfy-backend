@@ -117,7 +117,8 @@ app.post("/api/candidate-profile", authMiddleware, upload.fields([
   { name: "cv", maxCount: 1 }
 ]), async (req, res) => {
   try {
-    const userId = req.user.id;
+    //const userId = req.user.id;
+    const userId = 18;
 
     const profileData = {
       firstName: req.body.firstName,
@@ -180,4 +181,5 @@ app.get("/api/counters", async (req, res) => {
 
 // ✅ Start Server
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+
 
