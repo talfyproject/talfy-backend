@@ -119,6 +119,8 @@ app.post("/api/candidate-profile", authMiddleware, upload.fields([
   try {
     const userId = req.user.id;
 
+    console.log("Updating userId:", userId);
+
     const profileData = {
       firstName: req.body.firstName,
       lastName: req.body.lastName,
@@ -180,6 +182,7 @@ app.get("/api/counters", async (req, res) => {
 
 // ✅ Start Server
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+
 
 
 
