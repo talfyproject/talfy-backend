@@ -243,7 +243,7 @@ app.post("/api/candidate-profile", authMiddleware, upload.fields([
       phone: req.body.phone,
       location: req.body.location,
       birthDate: `${req.body.birthDay}-${req.body.birthMonth}-${req.body.birthYear}`,
-      jobRole: req.body.jobRole,
+      jobRole: req.body.jobRole === 'Other' && req.body.otherJobRole ? req.body.otherJobRole : req.body.jobRole,
       avatar: req.body.avatar || null,
       experience: req.body.experience,
       education: req.body.education,
@@ -259,19 +259,13 @@ app.post("/api/candidate-profile", authMiddleware, upload.fields([
       summary: req.body.summary,
       sectors: JSON.parse(req.body.sectors || "[]"),
       software: JSON.parse(req.body.software || "[]"),
-      photo: req.files["photo"] ? `/uploads/${req.files["photo"][0].filename}` : null,
-      cv: req.files["cv"] ? `/uploads/${req.files["cv"][0].filename}` : null
+      photo: req.files?.photo ? `/uploads/${req.files.photo[0].filename}` : null,
+      cv: req.files?.cv ? `/uploads/${req.files.cv[0].filename}` : null
     };
 
-    // ❌ DOPPIO UPDATE — commentato
-    // await pool.query(
-    //   "UPDATE users SET profile = $1::jsonb WHERE id = $2",
-    //   [JSON.stringify(profileData), userId]
-    // );
-
-    // ✅ UNICO UPDATE CON RETURNING
+    // ✅ UNICO UPDATE CON RETURNING (cast robusto a ::json)
     const upd = await pool.query(
-      "UPDATE users SET profile = $1::jsonb WHERE id = $2 RETURNING id, profile",
+      "UPDATE users SET profile = $1::json WHERE id = $2 RETURNING id, profile",
       [JSON.stringify(profileData), userId]
     );
     if (upd.rowCount === 0) {
@@ -279,8 +273,6 @@ app.post("/api/candidate-profile", authMiddleware, upload.fields([
     }
     res.json({ success: true, message: "Profile saved", user: upd.rows[0] });
 
-    // ❌ SECONDA RISPOSTA — commentata
-    // res.json({ success: true, message: "Profile saved", profile: profileData });
   } catch (err) {
     console.error("❌ Profile error:", err);
     res.status(500).json({ success: false, error: "Error saving profile" });
@@ -343,6 +335,7 @@ app.get("/api/counters", async (req, res) => {
 // ✅ Start Server (duplicato)
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
 */
+
 
 
 
