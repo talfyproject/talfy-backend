@@ -16,7 +16,7 @@ const PORT = process.env.PORT || 5000;
 
 app.use(cors({ origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"] }));
 app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // ✅ aggiunto per gestire form/text
+app.use(express.urlencoded({ extended: true })); // ✅ per gestire form/text
 app.use(express.static("public"));
 
 // ✅ Upload folder
@@ -237,42 +237,56 @@ app.post("/api/candidate-profile", authMiddleware, upload.fields([
 
     console.log("Updating userId:", userId);
 
+    // parse arrays safely
+    let sectorsArr = [];
+    let softwareArr = [];
+    try {
+      sectorsArr = req.body.sectors ? JSON.parse(req.body.sectors) : [];
+    } catch { sectorsArr = []; }
+    try {
+      softwareArr = req.body.software ? JSON.parse(req.body.software) : [];
+    } catch { softwareArr = []; }
+
     const profileData = {
-      firstName: req.body.firstName,
-      lastName: req.body.lastName,
-      phone: req.body.phone,
-      location: req.body.location,
-      birthDate: `${req.body.birthDay}-${req.body.birthMonth}-${req.body.birthYear}`,
-      jobRole: req.body.jobRole === 'Other' && req.body.otherJobRole ? req.body.otherJobRole : req.body.jobRole,
+      firstName: req.body.firstName || null,
+      lastName: req.body.lastName || null,
+      phone: req.body.phone || null,
+      location: req.body.location || null,
+      birthDate: (req.body.birthDay && req.body.birthMonth && req.body.birthYear)
+        ? `${req.body.birthDay}-${req.body.birthMonth}-${req.body.birthYear}`
+        : null,
+      jobRole: req.body.jobRole || req.body.otherJobRole || null,
       avatar: req.body.avatar || null,
-      experience: req.body.experience,
-      education: req.body.education,
-      salaryRange: { min: req.body.salaryMin, max: req.body.salaryMax },
-      languages: {
-        native: req.body.nativeLanguage,
-        second: { lang: req.body.secondLanguage, level: req.body.secondLanguageLevel },
-        third: { lang: req.body.thirdLanguage, level: req.body.thirdLanguageLevel }
+      experience: req.body.experience || null,
+      education: req.body.education || null,
+      salaryRange: {
+        min: req.body.salaryMin || null,
+        max: req.body.salaryMax || null
       },
-      availability: req.body.availability,
-      remoteWork: req.body.remoteWork,
-      relocation: req.body.relocation,
-      summary: req.body.summary,
-      sectors: JSON.parse(req.body.sectors || "[]"),
-      software: JSON.parse(req.body.software || "[]"),
-      photo: req.files?.photo ? `/uploads/${req.files.photo[0].filename}` : null,
-      cv: req.files?.cv ? `/uploads/${req.files.cv[0].filename}` : null
+      languages: {
+        native: req.body.nativeLanguage || null,
+        second: { lang: req.body.secondLanguage || null, level: req.body.secondLanguageLevel || null },
+        third: { lang: req.body.thirdLanguage || null, level: req.body.thirdLanguageLevel || null }
+      },
+      availability: req.body.availability || null,
+      remoteWork: req.body.remoteWork || null,
+      relocation: req.body.relocation || null,
+      summary: req.body.summary || null,
+      sectors: sectorsArr,
+      software: softwareArr,
+      photo: req.files?.photo?.[0] ? `/uploads/${req.files.photo[0].filename}` : null,
+      cv: req.files?.cv?.[0] ? `/uploads/${req.files.cv[0].filename}` : null
     };
 
-    // ✅ UNICO UPDATE CON RETURNING (cast robusto a ::json)
+    // ✅ UNICO UPDATE CON RETURNING
     const upd = await pool.query(
-      "UPDATE users SET profile = $1::json WHERE id = $2 RETURNING id, profile",
+      "UPDATE users SET profile = $1::jsonb WHERE id = $2 RETURNING id, email, user_type, profile",
       [JSON.stringify(profileData), userId]
     );
     if (upd.rowCount === 0) {
       return res.status(404).json({ success: false, error: "User not found" });
     }
     res.json({ success: true, message: "Profile saved", user: upd.rows[0] });
-
   } catch (err) {
     console.error("❌ Profile error:", err);
     res.status(500).json({ success: false, error: "Error saving profile" });
@@ -335,6 +349,7 @@ app.get("/api/counters", async (req, res) => {
 // ✅ Start Server (duplicato)
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
 */
+
 
 
 
